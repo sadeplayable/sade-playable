@@ -1,0 +1,1130 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width,initial-scale=1,user-scalable=no"
+    />
+    <title>Hopper — Playable Ad</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: #000;
+        font-family: "Orbitron", sans-serif;
+        touch-action: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      canvas {
+        display: block;
+        width: 100% !important;
+        height: 100% !important;
+        object-fit: contain;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="c"></canvas>
+    <script>
+      const c = document.getElementById("c"),
+        ctx = c.getContext("2d");
+      const W = 390,
+        H = 844;
+      c.width = W;
+      c.height = H;
+
+      /* ── BRAND ── */
+      const B = {
+        name: "YOUR BRAND",
+        tagline: "SWIPE TO JUMP!",
+        primary: "#9b5cff",
+        secondary: "#00fff7",
+        accent: "#ff4df0",
+        cta: "https://sadeplayable.com/",
+        ctaLabel: "VISIT US →",
+      };
+      let B_logoImg = null,
+        B_playerImg = null,
+        B_tokenImg = null;
+      function loadImg(src, cb) {
+        if (!src) return;
+        const i = new Image();
+        i.onload = () => cb(i);
+        i.src = src;
+      }
+      try {
+        const raw = sessionStorage.getItem("hopperBrand");
+        if (raw) {
+          const cfg = JSON.parse(raw);
+          if (cfg.color1) B.primary = cfg.color1;
+          if (cfg.color2) B.secondary = cfg.color2;
+          if (cfg.color3) B.accent = cfg.color3;
+          if (cfg.cta) B.cta = cfg.cta;
+          if (cfg.ctaLabel) B.ctaLabel = cfg.ctaLabel;
+          if (cfg.tagline) B.tagline = cfg.tagline;
+          loadImg(cfg.logo, (img) => (B_logoImg = img));
+          loadImg(cfg.player, (img) => (B_playerImg = img));
+          loadImg(cfg.token, (img) => (B_tokenImg = img));
+        }
+      } catch (e) {}
+
+      /* ── CONSTANTS ── */
+      const GRAVITY = 0.38;
+      const MAX_SWIPE = 140;
+      const POWER_SCALE = 0.18;
+      const PL_W = 36,
+        PL_H = 42;
+      const PLAT_H = 12;
+
+      /* ── STATE ── */
+      let state = "start";
+      let score = 0,
+        best = 0,
+        frame = 0,
+        tokensCollected = 0;
+      let cameraY = 0;
+      let particles = [],
+        tokens = [],
+        stars = [];
+
+      /* ── PLAYER ── */
+      const PL = {
+        worldX: W / 2,
+        worldY: PLAT_H,
+        vx: 0,
+        vy: 0,
+        onPlatform: null,
+        airborne: false,
+        squish: 1,
+        squishTimer: 0,
+        dead: false,
+      };
+
+      /* ── PLATFORMS ── */
+      let platforms = [];
+      let nextPlatY = 0;
+
+      function makePlat(worldY) {
+        const pw = 56 + Math.random() * 44;
+        const px = 16 + Math.random() * (W - pw - 32);
+        const moving = worldY > 400 && Math.random() < 0.2;
+        const bounce = Math.random() < 0.1;
+        return {
+          x: px,
+          worldY,
+          w: pw,
+          h: PLAT_H,
+          moving,
+          bounce,
+          vx: moving ? (Math.random() < 0.5 ? 1 : -1) : 0,
+          lit: false,
+          litTimer: 0,
+        };
+      }
+
+      function initPlatforms() {
+        platforms = [];
+        platforms.push({
+          x: W / 2 - 70,
+          worldY: 0,
+          w: 140,
+          h: PLAT_H,
+          moving: false,
+          bounce: false,
+          vx: 0,
+          lit: false,
+          litTimer: 0,
+        });
+        nextPlatY = 120;
+        for (let i = 0; i < 24; i++) {
+          platforms.push(makePlat(nextPlatY));
+          nextPlatY += 90 + Math.random() * 60;
+        }
+        tokens = [];
+        for (const p of platforms.slice(1)) {
+          if (Math.random() < 0.4)
+            tokens.push({
+              worldX: p.x + p.w / 2,
+              worldY: p.worldY + 40,
+              r: 12,
+              anim: Math.random() * Math.PI * 2,
+              collected: false,
+            });
+        }
+      }
+
+      function generateMore() {
+        while (nextPlatY < cameraY + H + 600) {
+          platforms.push(makePlat(nextPlatY));
+          const p = platforms[platforms.length - 1];
+          if (Math.random() < 0.4)
+            tokens.push({
+              worldX: p.x + p.w / 2,
+              worldY: p.worldY + 40,
+              r: 12,
+              anim: Math.random() * Math.PI * 2,
+              collected: false,
+            });
+          nextPlatY += 90 + Math.random() * 70;
+        }
+      }
+
+      /* ── SWIPE INPUT ── */
+      let swipeStart = null,
+        swipeCurrent = null,
+        aiming = false;
+
+      function getXY(e) {
+        const rect = c.getBoundingClientRect();
+        const src = e.touches ? e.touches[0] : e;
+        return {
+          x: (src.clientX - rect.left) * (W / rect.width),
+          y: (src.clientY - rect.top) * (H / rect.height),
+        };
+      }
+
+      function onDown(e) {
+        if (e.touches) e.preventDefault();
+        const p = getXY(e);
+        if (state === "start") {
+          startGame();
+          return;
+        }
+        if (state === "over") {
+          if (
+            p.y > CTA_BTN.y &&
+            p.y < CTA_BTN.y + CTA_BTN.h &&
+            p.x > CTA_BTN.x &&
+            p.x < CTA_BTN.x + CTA_BTN.w
+          ) {
+            window.open(B.cta, "_blank");
+            return;
+          }
+          if (
+            p.y > RETRY_BTN.y &&
+            p.y < RETRY_BTN.y + RETRY_BTN.h &&
+            p.x > RETRY_BTN.x &&
+            p.x < RETRY_BTN.x + RETRY_BTN.w
+          ) {
+            startGame();
+            return;
+          }
+          return;
+        }
+        if (!PL.airborne && PL.onPlatform) {
+          aiming = true;
+          swipeStart = { x: p.x, y: p.y };
+          swipeCurrent = { x: p.x, y: p.y };
+        }
+      }
+
+      function onMove(e) {
+        if (e.touches) e.preventDefault();
+        if (!aiming) return;
+        swipeCurrent = getXY(e);
+      }
+
+      function onUp(e) {
+        if (e.touches) e.preventDefault();
+        if (!aiming || state !== "play") return;
+        const p = getXY(e);
+        launch(swipeStart, p);
+        aiming = false;
+        swipeStart = null;
+        swipeCurrent = null;
+      }
+
+      function launch(from, to) {
+        const dx = to.x - from.x,
+          dy = to.y - from.y;
+        const dist = Math.hypot(dx, dy);
+        if (dist < 8) return;
+        const capped = Math.min(dist, MAX_SWIPE);
+        PL.vx = (dx / dist) * capped * POWER_SCALE;
+        PL.vy = -(dy / dist) * capped * POWER_SCALE; // screen Y inverted vs world Y
+        PL.airborne = true;
+        PL.onPlatform = null;
+        PL.squish = 1.35;
+        PL.squishTimer = 8;
+        burst(toSX(PL.worldX), toSY(PL.worldY + PL_H / 2), B.secondary, 6);
+      }
+
+      c.addEventListener("mousedown", onDown);
+      c.addEventListener("mousemove", onMove);
+      c.addEventListener("mouseup", onUp);
+      c.addEventListener("touchstart", onDown, { passive: false });
+      c.addEventListener("touchmove", onMove, { passive: false });
+      c.addEventListener("touchend", onUp, { passive: false });
+
+      /* ── START / RESET ── */
+      function startGame() {
+        score = 0;
+        frame = 0;
+        tokensCollected = 0;
+        cameraY = 0;
+        particles = [];
+        aiming = false;
+        swipeStart = null;
+        swipeCurrent = null;
+        PL.worldX = W / 2;
+        PL.worldY = PLAT_H;
+        PL.vx = 0;
+        PL.vy = 0;
+        PL.airborne = false;
+        PL.dead = false;
+        PL.squish = 1;
+        PL.squishTimer = 0;
+        initPlatforms();
+        generateMore();
+        PL.onPlatform = platforms[0];
+        state = "play";
+      }
+
+      /* ── COORD HELPERS ── */
+      function toSY(worldY) {
+        return H - (worldY - cameraY);
+      }
+      function toSX(worldX) {
+        return worldX;
+      }
+
+      /* ── PARTICLES ── */
+      function burst(sx, sy, color, n = 10) {
+        for (let i = 0; i < n; i++) {
+          const a = Math.random() * Math.PI * 2,
+            s = 1.5 + Math.random() * 3.5;
+          particles.push({
+            x: sx,
+            y: sy,
+            vx: Math.cos(a) * s,
+            vy: Math.sin(a) * s,
+            life: 1,
+            color,
+            r: 2 + Math.random() * 3,
+          });
+        }
+      }
+
+      /* ── UPDATE ── */
+      function update() {
+        if (state !== "play") return;
+        frame++;
+
+        // Move platforms
+        for (const p of platforms) {
+          if (p.moving) {
+            p.x += p.vx;
+            if (p.x <= 0 || p.x + p.w >= W) p.vx *= -1;
+          }
+          if (p.litTimer > 0 && --p.litTimer === 0) p.lit = false;
+        }
+
+        if (PL.airborne) {
+          PL.vy -= GRAVITY;
+          PL.worldX += PL.vx;
+          PL.worldY += PL.vy;
+          // Wrap horizontal
+          if (PL.worldX < -PL_W) PL.worldX = W + PL_W;
+          if (PL.worldX > W + PL_W) PL.worldX = -PL_W;
+
+          // Land on platform (only while falling)
+          if (PL.vy < 0) {
+            for (const plat of platforms) {
+              const platTop = plat.worldY + PLAT_H;
+              const prevY = PL.worldY - PL.vy;
+              if (
+                PL.worldX + PL_W / 2 - 6 > plat.x &&
+                PL.worldX - PL_W / 2 + 6 < plat.x + plat.w &&
+                PL.worldY <= platTop &&
+                prevY >= plat.worldY
+              ) {
+                PL.worldY = platTop;
+                PL.vy = 0;
+                PL.vx = 0;
+                PL.airborne = false;
+                PL.onPlatform = plat;
+                PL.squish = 1.4;
+                PL.squishTimer = 8;
+                plat.lit = true;
+                plat.litTimer = 14;
+                burst(
+                  toSX(PL.worldX),
+                  toSY(platTop),
+                  plat.bounce ? B.accent : B.primary,
+                  5,
+                );
+                if (plat.bounce) {
+                  // Bounce pad: auto-launch straight up
+                  PL.vy = 10;
+                  PL.airborne = true;
+                  PL.onPlatform = null;
+                  burst(toSX(PL.worldX), toSY(platTop), B.accent, 10);
+                }
+                break;
+              }
+            }
+          }
+
+          // Death: fell below camera
+          if (PL.worldY < cameraY - PL_H * 2) {
+            PL.dead = true;
+            burst(toSX(PL.worldX), H * 0.6, "#ff3333", 18);
+            if (score > best) best = score;
+            setTimeout(() => {
+              state = "over";
+            }, 600);
+          }
+        } else {
+          // Follow moving platform
+          if (PL.onPlatform?.moving) PL.worldX += PL.onPlatform.vx;
+        }
+
+        // Squish recover
+        if (PL.squishTimer > 0 && --PL.squishTimer === 0) PL.squish = 1;
+        PL.squish += (1 - PL.squish) * 0.2;
+
+        // Camera — only scroll up
+        const targetCam = PL.worldY - H * 0.45;
+        if (targetCam > cameraY) cameraY = targetCam;
+
+        // Score = height
+        const h = Math.floor(cameraY / 20);
+        if (h > score) score = h;
+
+        // Token collection
+        for (const tok of tokens) {
+          if (tok.collected) continue;
+          tok.anim += 0.07;
+          if (
+            Math.hypot(
+              toSX(tok.worldX) - toSX(PL.worldX),
+              toSY(tok.worldY) - toSY(PL.worldY + PL_H / 2),
+            ) <
+            tok.r + PL_W / 2 - 2
+          ) {
+            tok.collected = true;
+            tokensCollected++;
+            score += 3;
+            burst(toSX(tok.worldX), toSY(tok.worldY), B.secondary, 8);
+          }
+        }
+
+        platforms = platforms.filter((p) => p.worldY > cameraY - 300);
+        tokens = tokens.filter((t) => !t.collected && t.worldY > cameraY - 200);
+        generateMore();
+      }
+
+      /* ── DRAW BG ── */
+      function drawBg() {
+        const g = ctx.createLinearGradient(0, 0, 0, H);
+        const h = Math.min(0.8, score * 0.005);
+        g.addColorStop(0, `hsl(${260 - h * 40},${80 - h * 20}%,${6 + h * 4}%)`);
+        g.addColorStop(
+          1,
+          `hsl(${240 - h * 30},${70 - h * 15}%,${10 + h * 4}%)`,
+        );
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, W, H);
+        if (frame % 6 === 0 && stars.length < 110)
+          stars.push({
+            x: Math.random() * W,
+            y: Math.random() * H,
+            r: Math.random() * 1.3 + 0.3,
+            t: Math.random() * Math.PI * 2,
+          });
+        ctx.fillStyle = "#fff";
+        for (const s of stars) {
+          s.t += 0.03;
+          ctx.globalAlpha = 0.3 + Math.sin(s.t) * 0.3;
+          ctx.beginPath();
+          ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+      }
+
+      /* ── DRAW PLATFORMS ── */
+      function drawPlatforms() {
+        for (const p of platforms) {
+          const sy = toSY(p.worldY + PLAT_H);
+          if (sy > H + 20 || sy < -20) continue;
+          const col = p.bounce ? B.accent : p.moving ? B.secondary : B.primary;
+          ctx.save();
+          ctx.shadowColor = col;
+          ctx.shadowBlur = p.lit ? 22 : 8;
+          const gr = ctx.createLinearGradient(p.x, sy, p.x, sy + PLAT_H);
+          gr.addColorStop(0, col + "ee");
+          gr.addColorStop(1, col + "55");
+          ctx.fillStyle = gr;
+          ctx.beginPath();
+          ctx.roundRect(p.x, sy, p.w, PLAT_H, 5);
+          ctx.fill();
+          ctx.shadowBlur = 0;
+          ctx.strokeStyle = "rgba(255,255,255,0.4)";
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(p.x + 5, sy + 2);
+          ctx.lineTo(p.x + p.w - 5, sy + 2);
+          ctx.stroke();
+          if (p.bounce) {
+            ctx.fillStyle = "rgba(255,255,255,0.75)";
+            ctx.font = "9px Orbitron";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "bottom";
+            ctx.fillText("↑↑", p.x + p.w / 2, sy - 2);
+          }
+          ctx.restore();
+        }
+      }
+
+      /* ── DRAW AIM ── */
+      function drawAim() {
+        if (!aiming || !swipeStart || !swipeCurrent) return;
+        const dx = swipeCurrent.x - swipeStart.x,
+          dy = swipeCurrent.y - swipeStart.y;
+        const dist = Math.hypot(dx, dy);
+        if (dist < 4) return;
+        const capped = Math.min(dist, MAX_SWIPE);
+        const nx = dx / dist,
+          ny = dy / dist;
+        const lvx = nx * capped * POWER_SCALE;
+        const lvy = -(ny * capped * POWER_SCALE); // world Y
+
+        // Dotted trajectory
+        const px = toSX(PL.worldX),
+          py = toSY(PL.worldY + PL_H);
+        let sx = px,
+          sy = py,
+          svx = lvx,
+          svy = -lvy; // screen vy inverted
+        ctx.save();
+        ctx.setLineDash([5, 8]);
+        ctx.strokeStyle = B.secondary + "bb";
+        ctx.lineWidth = 2;
+        ctx.shadowColor = B.secondary;
+        ctx.shadowBlur = 6;
+        ctx.beginPath();
+        ctx.moveTo(sx, sy);
+        for (let i = 0; i < 24; i++) {
+          svy += GRAVITY;
+          sx += svx;
+          sy += svy;
+          ctx.lineTo(sx, sy);
+          if (sy > H + 10 || sy < -10) break;
+        }
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.shadowBlur = 0;
+
+        // Power ring at touch origin
+        const power = capped / MAX_SWIPE;
+        const ringColor = `hsl(${120 - power * 120},100%,60%)`;
+        ctx.strokeStyle = ringColor;
+        ctx.lineWidth = 3;
+        ctx.shadowColor = ringColor;
+        ctx.shadowBlur = 8;
+        ctx.beginPath();
+        ctx.arc(swipeStart.x, swipeStart.y, 22, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(
+          swipeStart.x,
+          swipeStart.y,
+          22,
+          -Math.PI / 2,
+          -Math.PI / 2 + power * Math.PI * 2,
+        );
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+
+        // Arrow from player toward launch direction
+        ctx.strokeStyle = B.secondary + "cc";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(px, py);
+        ctx.lineTo(px - nx * capped * 0.5, py - ny * capped * 0.5);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      /* ── DRAW PLAYER ── */
+      function drawPlayer() {
+        if (PL.dead) return;
+        const sx = toSX(PL.worldX),
+          sy = toSY(PL.worldY + PL_H);
+        if (sy > H + 60) return;
+        ctx.save();
+        ctx.translate(sx, sy);
+        const scaleX = 1 / Math.sqrt(PL.squish),
+          scaleY = PL.squish;
+        ctx.scale(scaleX, scaleY);
+
+        if (B_playerImg) {
+          ctx.drawImage(B_playerImg, -PL_W / 2, -PL_H, PL_W, PL_H);
+        } else {
+          ctx.fillStyle = "rgba(0,0,0,0.2)";
+          ctx.beginPath();
+          ctx.ellipse(0, 0, PL_W * 0.5, 5, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.shadowColor = B.primary;
+          ctx.shadowBlur = 16;
+          const bg = ctx.createLinearGradient(-PL_W / 2, -PL_H, PL_W / 2, 0);
+          bg.addColorStop(0, B.primary);
+          bg.addColorStop(1, B.secondary);
+          ctx.fillStyle = bg;
+          ctx.beginPath();
+          ctx.roundRect(-PL_W / 2, -PL_H, PL_W, PL_H, 10);
+          ctx.fill();
+          ctx.shadowBlur = 0;
+          // Eye
+          ctx.fillStyle = "rgba(0,0,0,0.7)";
+          ctx.beginPath();
+          ctx.arc(7, -PL_H * 0.55, 4.5, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = "#fff";
+          ctx.beginPath();
+          ctx.arc(8, -PL_H * 0.57, 2, 0, Math.PI * 2);
+          ctx.fill();
+          // Mouth
+          ctx.strokeStyle = "rgba(255,255,255,0.6)";
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          PL.airborne
+            ? ctx.arc(6, -PL_H * 0.35, 4, 0, Math.PI)
+            : ctx.arc(6, -PL_H * 0.4, 3, Math.PI, Math.PI * 2);
+          ctx.stroke();
+          // Brand label
+          ctx.fillStyle = "rgba(255,255,255,0.6)";
+          ctx.font = "6px Orbitron";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText(B.name, 0, -PL_H * 0.15);
+        }
+
+        // Idle pulse ring
+        if (!PL.airborne && !aiming) {
+          ctx.shadowBlur = 0;
+          ctx.strokeStyle = B.secondary + "99";
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.arc(
+            0,
+            -PL_H / 2,
+            11 + Math.sin(frame * 0.12) * 3,
+            0,
+            Math.PI * 2,
+          );
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+
+      /* ── DRAW TOKENS ── */
+      function drawTokens() {
+        for (const tok of tokens) {
+          if (tok.collected) continue;
+          const sx = toSX(tok.worldX),
+            sy = toSY(tok.worldY);
+          if (sy > H + 20 || sy < -20) continue;
+          ctx.save();
+          ctx.translate(sx, sy + Math.sin(tok.anim) * 3);
+          if (B_tokenImg) {
+            const sz = tok.r * 2.2;
+            ctx.drawImage(B_tokenImg, -sz / 2, -sz / 2, sz, sz);
+          } else {
+            ctx.shadowColor = B.secondary;
+            ctx.shadowBlur = 10;
+            ctx.fillStyle = B.secondary;
+            ctx.beginPath();
+            ctx.arc(0, 0, tok.r, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+            ctx.fillStyle = "rgba(0,0,0,0.65)";
+            ctx.font = `bold ${tok.r}px Orbitron`;
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText("★", 0, 1);
+          }
+          ctx.restore();
+        }
+      }
+
+      /* ── DRAW PARTICLES ── */
+      function drawParticles() {
+        for (let i = particles.length - 1; i >= 0; i--) {
+          const p = particles[i];
+          p.x += p.vx;
+          p.y += p.vy;
+          p.vy += 0.12;
+          p.life -= 0.035;
+          if (p.life <= 0) {
+            particles.splice(i, 1);
+            continue;
+          }
+          ctx.globalAlpha = p.life;
+          ctx.fillStyle = p.color;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, Math.max(0.5, p.r * p.life), 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+      }
+
+      /* ── HUD ── */
+      function drawHUD() {
+        ctx.fillStyle = "rgba(0,0,0,0.55)";
+        ctx.beginPath();
+        ctx.roundRect(12, 12, 118, 42, 10);
+        ctx.fill();
+        ctx.fillStyle = "rgba(255,255,255,0.45)";
+        ctx.font = "8px Orbitron";
+        ctx.textAlign = "left";
+        ctx.textBaseline = "middle";
+        ctx.fillText("HEIGHT", 20, 25);
+        ctx.fillStyle = B.primary;
+        ctx.font = "bold 17px Orbitron";
+        ctx.fillText(score + "m", 20, 42);
+
+        ctx.fillStyle = "rgba(0,0,0,0.55)";
+        ctx.beginPath();
+        ctx.roundRect(W - 130, 12, 118, 42, 10);
+        ctx.fill();
+        ctx.fillStyle = "rgba(255,255,255,0.45)";
+        ctx.font = "8px Orbitron";
+        ctx.textAlign = "right";
+        ctx.textBaseline = "middle";
+        ctx.fillText("BEST", W - 20, 25);
+        ctx.fillStyle = B.secondary;
+        ctx.font = "bold 17px Orbitron";
+        ctx.fillText(best + "m", W - 20, 42);
+
+        if (B_logoImg) {
+          const mh = 24,
+            dw = mh * (B_logoImg.width / B_logoImg.height);
+          ctx.globalAlpha = 0.9;
+          ctx.drawImage(B_logoImg, W / 2 - dw / 2, 16, dw, mh);
+          ctx.globalAlpha = 1;
+        }
+
+        // Swipe hint (first 5s)
+        if (frame < 300 && !PL.airborne && PL.onPlatform) {
+          ctx.globalAlpha = Math.min(1, (300 - frame) / 60);
+          ctx.fillStyle = "rgba(0,0,0,0.5)";
+          ctx.beginPath();
+          ctx.roundRect(W / 2 - 105, H - 46, 210, 30, 8);
+          ctx.fill();
+          ctx.fillStyle = B.secondary;
+          ctx.font = "10px Orbitron";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText("SWIPE to aim & launch!", W / 2, H - 31);
+          ctx.globalAlpha = 1;
+        }
+      }
+
+      /* ── START SCREEN ── */
+      function drawStart() {
+        const ov = ctx.createLinearGradient(0, 0, 0, H);
+        ov.addColorStop(0, "rgba(8,0,26,0.96)");
+        ov.addColorStop(0.5, "rgba(8,0,26,0.82)");
+        ov.addColorStop(1, "rgba(8,0,26,0.96)");
+        ctx.fillStyle = ov;
+        ctx.fillRect(0, 0, W, H);
+        const glow = ctx.createRadialGradient(
+          W / 2,
+          H * 0.38,
+          10,
+          W / 2,
+          H * 0.38,
+          220,
+        );
+        glow.addColorStop(0, B.primary + "44");
+        glow.addColorStop(1, "transparent");
+        ctx.fillStyle = glow;
+        ctx.fillRect(0, 0, W, H);
+        ctx.fillStyle = B.primary;
+        ctx.fillRect(0, 0, W, 4);
+
+        if (B_logoImg) {
+          const mw = 170,
+            mh = 66,
+            ratio = B_logoImg.width / B_logoImg.height;
+          let dw = mh * ratio,
+            dh = mh;
+          if (dw > mw) {
+            dw = mw;
+            dh = dw / ratio;
+          }
+          ctx.globalAlpha = 0.97;
+          ctx.drawImage(B_logoImg, W / 2 - dw / 2, H * 0.09, dw, dh);
+          ctx.globalAlpha = 1;
+        } else {
+          ctx.strokeStyle = B.primary + "77";
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.roundRect(W / 2 - 60, H * 0.09, 120, 58, 10);
+          ctx.stroke();
+          ctx.fillStyle = "rgba(255,255,255,0.25)";
+          ctx.font = "9px Orbitron";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText("YOUR LOGO", W / 2, H * 0.09 + 29);
+          ctx.textBaseline = "alphabetic";
+        }
+
+        ctx.fillStyle = B.primary;
+        ctx.font = "bold 56px Orbitron";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "alphabetic";
+        ctx.shadowBlur = 0;
+        ctx.fillText("HOPPER", W / 2, H * 0.34);
+        ctx.fillStyle = "rgba(255,255,255,0.5)";
+        ctx.font = "bold 12px Orbitron";
+        ctx.fillText(B.tagline || "SWIPE TO JUMP!", W / 2, H * 0.4);
+
+        ctx.strokeStyle = B.primary + "44";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(40, H * 0.428);
+        ctx.lineTo(W - 40, H * 0.428);
+        ctx.stroke();
+
+        const tips = [
+          {
+            icon: "👆",
+            col: B.secondary,
+            text: "SWIPE on yourself to aim & launch",
+          },
+          { icon: "🟣", col: B.primary, text: "Land on platforms to lock in" },
+          {
+            icon: "⚡",
+            col: B.accent,
+            text: "↑↑ bounce pads fling you higher",
+          },
+          {
+            icon: "★",
+            col: B.secondary,
+            text: "Collect tokens for bonus points",
+          },
+        ];
+        ctx.textBaseline = "middle";
+        tips.forEach((t, i) => {
+          const ry = H * 0.462 + i * H * 0.052;
+          ctx.fillStyle = "rgba(255,255,255,0.05)";
+          ctx.beginPath();
+          ctx.roundRect(16, ry - 15, W - 32, 30, 8);
+          ctx.fill();
+          ctx.fillStyle = t.col;
+          ctx.font = "12px Orbitron";
+          ctx.textAlign = "left";
+          ctx.fillText(t.icon, 32, ry);
+          ctx.fillStyle = "rgba(255,255,255,0.82)";
+          ctx.fillText(t.text, 60, ry);
+        });
+
+        const pulse = Math.sin(frame * 0.07) * 0.03 + 1;
+        ctx.save();
+        ctx.translate(W / 2, H * 0.73);
+        ctx.scale(pulse, pulse);
+        const bg = ctx.createLinearGradient(-W * 0.42, 0, W * 0.42, 0);
+        bg.addColorStop(0, B.primary);
+        bg.addColorStop(1, B.accent);
+        ctx.fillStyle = bg;
+        ctx.beginPath();
+        ctx.roundRect(-W * 0.42, -26, W * 0.84, 52, 14);
+        ctx.fill();
+        ctx.fillStyle = "#fff";
+        ctx.font = "bold 18px Orbitron";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("TAP TO START", 0, 0);
+        ctx.restore();
+
+        if (best > 0) {
+          ctx.fillStyle = "rgba(255,255,255,0.28)";
+          ctx.font = "10px Orbitron";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "alphabetic";
+          ctx.fillText("BEST: " + best + "m", W / 2, H * 0.845);
+        }
+        ctx.fillStyle = "rgba(255,255,255,0.18)";
+        ctx.font = "10px Orbitron";
+        ctx.textAlign = "center";
+        ctx.fillText(B.name, W / 2, H * 0.955);
+        ctx.fillStyle = B.primary;
+        ctx.fillRect(0, H - 4, W, 4);
+      }
+
+      /* ── GAME OVER SCREEN ── */
+      const CTA_BTN = { x: 0, y: 0, w: 240, h: 52 };
+      const RETRY_BTN = { x: 0, y: 0, w: 180, h: 44 };
+
+      function drawOver() {
+        const ov = ctx.createLinearGradient(0, 0, 0, H);
+        ov.addColorStop(0, "rgba(8,0,26,0.96)");
+        ov.addColorStop(1, "rgba(8,0,26,0.9)");
+        ctx.fillStyle = ov;
+        ctx.fillRect(0, 0, W, H);
+        const glow = ctx.createRadialGradient(
+          W / 2,
+          H * 0.32,
+          10,
+          W / 2,
+          H * 0.32,
+          180,
+        );
+        glow.addColorStop(0, B.primary + "33");
+        glow.addColorStop(1, "transparent");
+        ctx.fillStyle = glow;
+        ctx.fillRect(0, 0, W, H);
+        ctx.fillStyle = B.primary;
+        ctx.fillRect(0, 0, W, 4);
+
+        if (B_logoImg) {
+          const mw = 150,
+            mh = 54,
+            ratio = B_logoImg.width / B_logoImg.height;
+          let dw = mh * ratio,
+            dh = mh;
+          if (dw > mw) {
+            dw = mw;
+            dh = dw / ratio;
+          }
+          ctx.globalAlpha = 0.95;
+          ctx.drawImage(B_logoImg, W / 2 - dw / 2, H * 0.09, dw, dh);
+          ctx.globalAlpha = 1;
+        } else {
+          ctx.strokeStyle = B.primary + "55";
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.roundRect(W / 2 - 55, H * 0.09, 110, 46, 8);
+          ctx.stroke();
+          ctx.fillStyle = "rgba(255,255,255,0.2)";
+          ctx.font = "9px Orbitron";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText("YOUR LOGO", W / 2, H * 0.09 + 23);
+          ctx.textBaseline = "alphabetic";
+        }
+
+        ctx.fillStyle = B.accent;
+        ctx.font = "bold 36px Orbitron";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "alphabetic";
+        ctx.shadowBlur = 0;
+        ctx.fillText("NICE HOPS!", W / 2, H * 0.305);
+
+        ctx.fillStyle = "rgba(255,255,255,0.05)";
+        ctx.beginPath();
+        ctx.roundRect(W / 2 - 150, H * 0.33, 300, 116, 14);
+        ctx.fill();
+        ctx.strokeStyle = B.primary + "44";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.roundRect(W / 2 - 150, H * 0.33, 300, 116, 14);
+        ctx.stroke();
+
+        ctx.fillStyle = "rgba(255,255,255,0.4)";
+        ctx.font = "10px Orbitron";
+        ctx.textAlign = "center";
+        ctx.fillText("HEIGHT", W / 2 - 72, H * 0.368);
+        ctx.fillText("TOKENS", W / 2 + 72, H * 0.368);
+        ctx.fillStyle = B.primary;
+        ctx.font = "bold 30px Orbitron";
+        ctx.fillText(score + "m", W / 2 - 72, H * 0.41);
+
+        ctx.save();
+        ctx.translate(W / 2 + 52, H * 0.4);
+        if (B_tokenImg) {
+          ctx.drawImage(B_tokenImg, -12, -12, 24, 24);
+        } else {
+          ctx.fillStyle = B.secondary;
+          ctx.font = "18px sans-serif";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText("★", 0, 0);
+        }
+        ctx.restore();
+        ctx.fillStyle = B.secondary;
+        ctx.font = "bold 30px Orbitron";
+        ctx.textAlign = "center";
+        ctx.fillText("×" + tokensCollected, W / 2 + 86, H * 0.41);
+
+        ctx.strokeStyle = "rgba(255,255,255,0.1)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(W / 2, H * 0.33 + 12);
+        ctx.lineTo(W / 2, H * 0.33 + 104);
+        ctx.stroke();
+
+        const isNewBest = score >= best && score > 0;
+        if (isNewBest) {
+          const p2 = Math.sin(frame * 0.1) * 0.07 + 1;
+          ctx.save();
+          ctx.translate(W / 2, H * 0.457);
+          ctx.scale(p2, p2);
+          ctx.fillStyle = B.secondary;
+          ctx.font = "bold 13px Orbitron";
+          ctx.textAlign = "center";
+          ctx.fillText("🏆 NEW BEST!", 0, 0);
+          ctx.restore();
+        } else {
+          ctx.fillStyle = "rgba(255,255,255,0.3)";
+          ctx.font = "11px Orbitron";
+          ctx.textAlign = "center";
+          ctx.fillText("BEST: " + best + "m", W / 2, H * 0.457);
+        }
+
+        // CTA button
+        CTA_BTN.x = W / 2 - 120;
+        CTA_BTN.y = H * 0.508;
+        const ctaG = ctx.createLinearGradient(
+          CTA_BTN.x,
+          0,
+          CTA_BTN.x + CTA_BTN.w,
+          0,
+        );
+        ctaG.addColorStop(0, B.primary);
+        ctaG.addColorStop(1, B.accent);
+        ctx.fillStyle = ctaG;
+        ctx.beginPath();
+        ctx.roundRect(CTA_BTN.x, CTA_BTN.y, CTA_BTN.w, CTA_BTN.h, 14);
+        ctx.fill();
+        ctx.fillStyle = "#fff";
+        ctx.font = "bold 14px Orbitron";
+        ctx.textBaseline = "middle";
+        ctx.textAlign = "center";
+        ctx.fillText(B.ctaLabel, W / 2, CTA_BTN.y + CTA_BTN.h / 2);
+
+        // Try again
+        RETRY_BTN.x = W / 2 - 90;
+        RETRY_BTN.y = H * 0.612;
+        ctx.fillStyle = "rgba(255,255,255,0.08)";
+        ctx.beginPath();
+        ctx.roundRect(RETRY_BTN.x, RETRY_BTN.y, RETRY_BTN.w, RETRY_BTN.h, 12);
+        ctx.fill();
+        ctx.strokeStyle = "rgba(255,255,255,0.28)";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.roundRect(RETRY_BTN.x, RETRY_BTN.y, RETRY_BTN.w, RETRY_BTN.h, 12);
+        ctx.stroke();
+        ctx.fillStyle = "rgba(255,255,255,0.88)";
+        ctx.font = "bold 14px Orbitron";
+        ctx.textBaseline = "middle";
+        ctx.textAlign = "center";
+        ctx.fillText("↺  TRY AGAIN", W / 2, RETRY_BTN.y + RETRY_BTN.h / 2);
+        ctx.textBaseline = "alphabetic";
+        ctx.fillStyle = B.primary;
+        ctx.fillRect(0, H - 4, W, 4);
+      }
+
+      /* ── LOOP ── */
+      function loop() {
+        requestAnimationFrame(loop);
+        frame++;
+        update();
+        drawBg();
+        drawPlatforms();
+        drawTokens();
+        drawAim();
+        drawPlayer();
+        drawParticles();
+        if (state === "play") drawHUD();
+        if (state === "start") drawStart();
+        if (state === "over") drawOver();
+      }
+
+      for (let i = 0; i < 60; i++)
+        stars.push({
+          x: Math.random() * W,
+          y: Math.random() * H,
+          r: Math.random() * 1.3 + 0.3,
+          t: Math.random() * Math.PI * 2,
+        });
+      initPlatforms();
+      loop();
+
+      // ── CANVAS RECORDING ──
+      (function () {
+        let mr = null,
+          chunks = [];
+        window.addEventListener("message", (e) => {
+          if (e.data?.type === "startRecording") {
+            chunks = [];
+            const stream = document.getElementById("c").captureStream(60);
+            const mimeType = MediaRecorder.isTypeSupported(
+              "video/webm;codecs=vp9",
+            )
+              ? "video/webm;codecs=vp9"
+              : "video/webm";
+            mr = new MediaRecorder(stream, {
+              mimeType,
+              videoBitsPerSecond: 5_000_000,
+            });
+            mr.ondataavailable = (ev) => {
+              if (ev.data.size > 0) chunks.push(ev.data);
+            };
+            mr.onstop = () => {
+              const blob = new Blob(chunks, { type: mimeType });
+              const reader = new FileReader();
+              reader.onload = () => {
+                const base64 = reader.result.split(",")[1];
+                window.parent.postMessage(
+                  {
+                    type: "recordingBlob",
+                    gameId: e.data?.gameId || "game",
+                    blob64: base64,
+                    mimeType,
+                  },
+                  "*",
+                );
+              };
+              reader.readAsDataURL(blob);
+            };
+            mr.start(200);
+          }
+          if (e.data?.type === "stopRecording") {
+            if (mr && mr.state === "recording") {
+              // Pass gameId to onstop via closure trick
+              const gid = e.data.gameId;
+              mr.onstop = () => {
+                const blob = new Blob(chunks, {
+                  type: mr.mimeType || "video/webm",
+                });
+                const reader = new FileReader();
+                reader.onload = () => {
+                  const base64 = reader.result.split(",")[1];
+                  window.parent.postMessage(
+                    {
+                      type: "recordingBlob",
+                      gameId: gid,
+                      blob64: base64,
+                      mimeType: mr.mimeType || "video/webm",
+                    },
+                    "*",
+                  );
+                };
+                reader.readAsDataURL(blob);
+              };
+              mr.stop();
+            }
+          }
+        });
+      })();
+    </script>
+  </body>
+</html>

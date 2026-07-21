@@ -1,0 +1,867 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width,initial-scale=1,user-scalable=no"
+    />
+    <title>Catcher — Playable Ad</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: #000;
+        font-family: "Orbitron", sans-serif;
+        touch-action: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      canvas {
+        display: block;
+        width: 100% !important;
+        height: 100% !important;
+        object-fit: contain;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="c"></canvas>
+    <script>
+      const c = document.getElementById("c"),
+        ctx = c.getContext("2d");
+      const W = 390,
+        H = 844;
+      c.width = W;
+      c.height = H;
+
+      // ── BRAND CONFIG ──
+      const B = {
+        name: "YOUR BRAND",
+        tagline: "YOUR TAGLINE",
+        primary: "#ff4df0",
+        secondary: "#00fff7",
+        accent: "#ffd700",
+        bad: "#ff3333",
+        bg: "#0a0008",
+        cta: "https://sadeplayable.com/",
+        ctaLabel: "VISIT US →",
+        itemLabel: "ITEM", // what you're catching
+        badLabel: "BOMB", // what to avoid
+      };
+
+      // ── READ BRAND FROM sessionStorage ──
+      let B_logoImg = null;
+      let B_basketImg = null; // custom catcher image
+      let B_goodImg = null; // custom good token image
+      let B_badImg = null; // custom bad token image
+
+      function loadImg(src, cb) {
+        if (!src) return;
+        const i = new Image();
+        i.onload = () => cb(i);
+        i.src = src;
+      }
+
+      try {
+        const raw = sessionStorage.getItem("catcherBrand");
+        if (raw) {
+          const cfg = JSON.parse(raw);
+          if (cfg.color1) B.primary = cfg.color1;
+          if (cfg.color2) B.secondary = cfg.color2;
+          if (cfg.color3) B.accent = cfg.color3;
+          if (cfg.color4) B.bg = cfg.color4;
+          if (cfg.cta) B.cta = cfg.cta;
+          loadImg(cfg.logo, (img) => (B_logoImg = img));
+          loadImg(cfg.basket, (img) => (B_basketImg = img));
+          loadImg(cfg.good, (img) => (B_goodImg = img));
+          loadImg(cfg.bad, (img) => (B_badImg = img));
+        }
+      } catch (e) {}
+
+      // ── STATE ──
+      let state = "start",
+        score = 0,
+        best = 0,
+        lives = 3,
+        frame = 0,
+        speed = 2;
+      let basket = { x: W / 2, w: 90, h: 28, y: H - 80 };
+      let items = [],
+        particles = [];
+      let lastItem = 0,
+        combo = 0,
+        comboTimer = 0;
+
+      function resetGame() {
+        score = 0;
+        lives = 3;
+        speed = 2;
+        frame = 0;
+        items = [];
+        particles = [];
+        combo = 0;
+        basket.x = W / 2;
+        lastItem = 0;
+        state = "play";
+      }
+
+      // Input
+      let dragging = false;
+      function getX(e) {
+        const x = e.touches ? e.touches[0].clientX : e.clientX;
+        return (
+          (x - c.getBoundingClientRect().left) *
+          (W / c.getBoundingClientRect().width)
+        );
+      }
+      c.addEventListener("mousedown", (e) => {
+        dragging = true;
+        if (state === "start") {
+          state = "play";
+          return;
+        }
+      });
+      c.addEventListener("mousemove", (e) => {
+        if (dragging && state === "play")
+          basket.x = Math.max(
+            basket.w / 2,
+            Math.min(W - basket.w / 2, getX(e)),
+          );
+      });
+      c.addEventListener("mouseup", () => (dragging = false));
+      c.addEventListener(
+        "touchstart",
+        (e) => {
+          e.preventDefault();
+          dragging = true;
+          if (state === "start") {
+            state = "play";
+            return;
+          }
+        },
+        { passive: false },
+      );
+      c.addEventListener(
+        "touchmove",
+        (e) => {
+          e.preventDefault();
+          if (state === "play")
+            basket.x = Math.max(
+              basket.w / 2,
+              Math.min(W - basket.w / 2, getX(e)),
+            );
+        },
+        { passive: false },
+      );
+      c.addEventListener("touchend", () => (dragging = false));
+
+      function spawnItem() {
+        const bad = Math.random() < 0.25;
+        const emoji = bad ? "✕" : "★";
+        items.push({
+          x: 40 + Math.random() * (W - 80),
+          y: -30,
+          r: 22,
+          bad,
+          emoji,
+          spin: Math.random() * 0.1 - 0.05,
+          rot: 0,
+          vy: speed * (0.8 + Math.random() * 0.4),
+          color: bad ? B.bad : B.primary,
+        });
+      }
+
+      function burst(x, y, color, n = 10) {
+        for (let i = 0; i < n; i++) {
+          const a = Math.random() * Math.PI * 2,
+            s = 2 + Math.random() * 5;
+          particles.push({
+            x,
+            y,
+            vx: Math.cos(a) * s,
+            vy: Math.sin(a) * s,
+            life: 1,
+            color,
+            r: 3 + Math.random() * 4,
+          });
+        }
+      }
+
+      // Sky clouds state
+      const CLOUDS = Array.from({ length: 5 }, () => ({
+        x: Math.random() * W,
+        y: Math.random() * H * 0.35 + 20,
+        w: Math.random() * 80 + 50,
+        speed: Math.random() * 0.3 + 0.12,
+      }));
+
+      function drawCloud(cx, cy, cw) {
+        ctx.fillStyle = "rgba(255,255,255,0.82)";
+        [
+          [0, 0, cw * 0.28],
+          [cw * 0.22, -cw * 0.1, cw * 0.22],
+          [cw * 0.5, 0, cw * 0.25],
+          [cw * 0.78, -cw * 0.06, cw * 0.2],
+          [cw, 0, cw * 0.18],
+        ].forEach(([bx, by, br]) => {
+          ctx.beginPath();
+          ctx.arc(cx + bx, cy + by, br, 0, Math.PI * 2);
+          ctx.fill();
+        });
+      }
+
+      function drawBg() {
+        // Real sky gradient
+        const g = ctx.createLinearGradient(0, 0, 0, H);
+        g.addColorStop(0, "#3a8fd1");
+        g.addColorStop(0.55, "#87ceeb");
+        g.addColorStop(1, "#c8eaf8");
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, W, H);
+
+        // Sun
+        const sg = ctx.createRadialGradient(
+          W * 0.82,
+          H * 0.07,
+          0,
+          W * 0.82,
+          H * 0.07,
+          70,
+        );
+        sg.addColorStop(0, "#fff9c0");
+        sg.addColorStop(0.4, "rgba(255,245,160,0.55)");
+        sg.addColorStop(1, "rgba(255,245,160,0)");
+        ctx.fillStyle = sg;
+        ctx.fillRect(0, 0, W, H);
+        ctx.fillStyle = "#fff5a0";
+        ctx.beginPath();
+        ctx.arc(W * 0.82, H * 0.07, 28, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Clouds drift
+        for (const cl of CLOUDS) {
+          drawCloud(cl.x, cl.y, cl.w);
+          cl.x -= cl.speed;
+          if (cl.x + cl.w < 0) {
+            cl.x = W + 10;
+            cl.y = Math.random() * H * 0.35 + 20;
+            cl.w = Math.random() * 80 + 50;
+          }
+        }
+
+        // Ground strip at bottom
+        const gg = ctx.createLinearGradient(0, H * 0.88, 0, H);
+        gg.addColorStop(0, "#5a8a3c");
+        gg.addColorStop(0.25, "#8B6914");
+        gg.addColorStop(1, "#5c3d0a");
+        ctx.fillStyle = gg;
+        ctx.fillRect(0, H * 0.88, W, H * 0.12);
+
+        // Brand colour glow at top (subtle, keeps brand identity)
+        const tg = ctx.createRadialGradient(W / 2, 0, 0, W / 2, 0, 180);
+        tg.addColorStop(0, B.primary + "18");
+        tg.addColorStop(1, "transparent");
+        ctx.fillStyle = tg;
+        ctx.fillRect(0, 0, W, H);
+      }
+
+      function drawBasket() {
+        const x = basket.x,
+          y = basket.y,
+          w = basket.w,
+          h = basket.h;
+
+        if (B_basketImg) {
+          // Custom catcher image — draw centred at basket position
+          const iw = w * 1.1,
+            ih = (iw / B_basketImg.width) * B_basketImg.height;
+          ctx.drawImage(B_basketImg, x - iw / 2, y - ih + h, iw, ih);
+        } else {
+          // Shadow
+          ctx.fillStyle = "rgba(255,77,240,0.15)";
+          ctx.beginPath();
+          ctx.ellipse(x, y + h / 2 + 6, w * 0.55, 10, 0, 0, Math.PI * 2);
+          ctx.fill();
+          // Body
+          const bg = ctx.createLinearGradient(x - w / 2, y, x + w / 2, y + h);
+          bg.addColorStop(0, B.primary);
+          bg.addColorStop(1, B.accent + "88");
+          ctx.fillStyle = bg;
+          ctx.beginPath();
+          ctx.moveTo(x - w / 2, y);
+          ctx.lineTo(x + w / 2, y);
+          ctx.lineTo(x + w / 2 - 10, y + h);
+          ctx.lineTo(x - w / 2 + 10, y + h);
+          ctx.closePath();
+          ctx.fill();
+          // Shine
+          ctx.fillStyle = "rgba(255,255,255,0.2)";
+          ctx.beginPath();
+          ctx.moveTo(x - w / 2, y);
+          ctx.lineTo(x + w / 2, y);
+          ctx.lineTo(x + w / 2 - 8, y + 8);
+          ctx.lineTo(x - w / 2 + 8, y + 8);
+          ctx.closePath();
+          ctx.fill();
+          // Brand text
+          ctx.fillStyle = "rgba(0,0,0,0.7)";
+          ctx.font = "bold 9px Orbitron";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText(B.name, x, y + h / 2);
+          // Glow edge
+          ctx.shadowColor = B.primary;
+          ctx.shadowBlur = 15;
+          ctx.strokeStyle = B.primary + "cc";
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(x - w / 2, y);
+          ctx.lineTo(x + w / 2, y);
+          ctx.lineTo(x + w / 2 - 10, y + h);
+          ctx.lineTo(x - w / 2 + 10, y + h);
+          ctx.closePath();
+          ctx.stroke();
+          ctx.shadowBlur = 0;
+        }
+      }
+
+      function drawItem(it) {
+        ctx.save();
+        ctx.translate(it.x, it.y);
+        ctx.rotate(it.rot);
+
+        const customImg = it.bad ? B_badImg : B_goodImg;
+
+        if (customImg) {
+          const sz = it.r * 2.2;
+          ctx.drawImage(customImg, -sz / 2, -sz / 2, sz, sz);
+        } else {
+          // Default drawn token
+          ctx.shadowColor = it.color;
+          ctx.shadowBlur = 16;
+          const g = ctx.createRadialGradient(0, 0, 2, 0, 0, it.r);
+          g.addColorStop(0, it.bad ? "#ff6666" : "#fff");
+          g.addColorStop(1, it.color);
+          ctx.fillStyle = g;
+          ctx.beginPath();
+          ctx.arc(0, 0, it.r, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.shadowBlur = 0;
+          ctx.fillStyle = "rgba(0,0,0,0.8)";
+          ctx.font = `bold ${it.r}px Orbitron`;
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText(it.emoji, 0, 1);
+        }
+        ctx.restore();
+      }
+
+      function drawHUD() {
+        // Lives
+        ctx.fillStyle = "rgba(0,0,0,0.6)";
+        ctx.beginPath();
+        ctx.roundRect(12, 12, 140, 44, 10);
+        ctx.fill();
+        ctx.fillStyle = "#fff";
+        ctx.font = "bold 10px Orbitron";
+        ctx.textAlign = "left";
+        ctx.textBaseline = "middle";
+        ctx.fillText("LIVES", 20, 28);
+        ctx.fillStyle = B.primary;
+        ctx.font = "bold 20px Orbitron";
+        ctx.fillText("♥".repeat(lives), 20, 44);
+        // Score
+        ctx.fillStyle = "rgba(0,0,0,0.6)";
+        ctx.beginPath();
+        ctx.roundRect(W - 152, 12, 140, 44, 10);
+        ctx.fill();
+        ctx.fillStyle = "#fff";
+        ctx.font = "bold 10px Orbitron";
+        ctx.textAlign = "right";
+        ctx.textBaseline = "middle";
+        ctx.fillText("SCORE", W - 20, 28);
+        ctx.fillStyle = B.secondary;
+        ctx.font = "bold 20px Orbitron";
+        ctx.fillText(score, W - 20, 44);
+        // Combo
+        if (combo > 1 && comboTimer > 0) {
+          const a = Math.min(1, comboTimer / 40);
+          ctx.globalAlpha = a;
+          ctx.fillStyle = B.accent;
+          ctx.font = "bold 28px Orbitron";
+          ctx.textAlign = "center";
+          ctx.fillText(`${combo}x COMBO!`, W / 2, H / 2 - 60);
+          ctx.globalAlpha = 1;
+        }
+      }
+
+      function drawStart() {
+        // Full-screen overlay
+        const ov = ctx.createLinearGradient(0, 0, 0, H);
+        ov.addColorStop(0, "rgba(10,0,8,0.96)");
+        ov.addColorStop(0.5, "rgba(10,0,8,0.82)");
+        ov.addColorStop(1, "rgba(10,0,8,0.96)");
+        ctx.fillStyle = ov;
+        ctx.fillRect(0, 0, W, H);
+        const glow = ctx.createRadialGradient(
+          W / 2,
+          H * 0.36,
+          10,
+          W / 2,
+          H * 0.36,
+          220,
+        );
+        glow.addColorStop(0, B.primary + "44");
+        glow.addColorStop(1, "transparent");
+        ctx.fillStyle = glow;
+        ctx.fillRect(0, 0, W, H);
+
+        // Accent bars
+        ctx.fillStyle = B.primary;
+        ctx.fillRect(0, 0, W, 4);
+        ctx.fillStyle = B.primary;
+        ctx.fillRect(0, H - 4, W, 4);
+
+        // Logo
+        if (B_logoImg) {
+          const mw = 170,
+            mh = 66,
+            ratio = B_logoImg.width / B_logoImg.height;
+          let dw = mh * ratio,
+            dh = mh;
+          if (dw > mw) {
+            dw = mw;
+            dh = dw / ratio;
+          }
+          ctx.globalAlpha = 0.97;
+          ctx.drawImage(B_logoImg, W / 2 - dw / 2, H * 0.09, dw, dh);
+          ctx.globalAlpha = 1;
+        } else {
+          ctx.strokeStyle = B.primary + "77";
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.roundRect(W / 2 - 60, H * 0.09, 120, 58, 10);
+          ctx.stroke();
+          ctx.fillStyle = "rgba(255,255,255,0.25)";
+          ctx.font = "9px Orbitron";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText("YOUR LOGO", W / 2, H * 0.09 + 29);
+          ctx.textBaseline = "alphabetic";
+        }
+
+        // Title
+        ctx.fillStyle = B.primary;
+        ctx.font = "bold 52px Orbitron";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "alphabetic";
+        ctx.shadowBlur = 0;
+        ctx.fillText("CATCHER", W / 2, H * 0.34);
+        ctx.fillStyle = "rgba(255,255,255,0.55)";
+        ctx.font = "bold 13px Orbitron";
+        ctx.fillText(B.tagline || "CATCH EVERYTHING!", W / 2, H * 0.4);
+
+        // Divider
+        ctx.strokeStyle = B.primary + "44";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(40, H * 0.428);
+        ctx.lineTo(W - 40, H * 0.428);
+        ctx.stroke();
+
+        // Tips — full width rows
+        const tips = [
+          {
+            icon: "👆",
+            col: "rgba(255,255,255,0.8)",
+            text: "DRAG to move your catcher",
+          },
+          { icon: "★", col: B.primary, text: "Catch good items for points" },
+          { icon: "✕", col: B.bad, text: "Avoid bad items or lose lives" },
+          { icon: "🔥", col: B.accent, text: "Combos multiply your score!" },
+        ];
+        ctx.textBaseline = "middle";
+        tips.forEach((t, i) => {
+          const ry = H * 0.462 + i * H * 0.052;
+          ctx.fillStyle = "rgba(255,255,255,0.05)";
+          ctx.beginPath();
+          ctx.roundRect(16, ry - 15, W - 32, 30, 8);
+          ctx.fill();
+          ctx.fillStyle = t.col;
+          ctx.font = "13px Orbitron";
+          ctx.textAlign = "left";
+          ctx.fillText(t.icon, 32, ry);
+          ctx.fillStyle = "rgba(255,255,255,0.82)";
+          ctx.fillText(t.text, 60, ry);
+        });
+
+        // Button
+        const pulse = Math.sin(frame * 0.06) * 0.03 + 1;
+        ctx.save();
+        ctx.translate(W / 2, H * 0.73);
+        ctx.scale(pulse, pulse);
+        const btnG = ctx.createLinearGradient(-W * 0.42, 0, W * 0.42, 0);
+        btnG.addColorStop(0, B.primary);
+        btnG.addColorStop(1, B.accent);
+        ctx.fillStyle = btnG;
+        ctx.beginPath();
+        ctx.roundRect(-W * 0.42, -26, W * 0.84, 52, 14);
+        ctx.fill();
+        ctx.fillStyle = "#000";
+        ctx.font = "bold 18px Orbitron";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("TAP TO START", 0, 0);
+        ctx.restore();
+
+        if (best > 0) {
+          ctx.fillStyle = "rgba(255,255,255,0.28)";
+          ctx.font = "10px Orbitron";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "alphabetic";
+          ctx.fillText("BEST: " + best, W / 2, H * 0.845);
+        }
+        ctx.fillStyle = "rgba(255,255,255,0.18)";
+        ctx.font = "10px Orbitron";
+        ctx.textAlign = "center";
+        ctx.fillText(B.name, W / 2, H * 0.955);
+      }
+
+      const CTA_BTN = { x: 0, y: 0, w: 240, h: 52 };
+      const RETRY_BTN = { x: 0, y: 0, w: 180, h: 44 };
+
+      function drawOver() {
+        const ov = ctx.createLinearGradient(0, 0, 0, H);
+        ov.addColorStop(0, "rgba(10,0,8,0.96)");
+        ov.addColorStop(1, "rgba(10,0,8,0.9)");
+        ctx.fillStyle = ov;
+        ctx.fillRect(0, 0, W, H);
+        const glow = ctx.createRadialGradient(
+          W / 2,
+          H * 0.32,
+          10,
+          W / 2,
+          H * 0.32,
+          180,
+        );
+        glow.addColorStop(0, B.primary + "33");
+        glow.addColorStop(1, "transparent");
+        ctx.fillStyle = glow;
+        ctx.fillRect(0, 0, W, H);
+        ctx.fillStyle = B.primary;
+        ctx.fillRect(0, 0, W, 4);
+
+        // Logo
+        if (B_logoImg) {
+          const mw = 150,
+            mh = 54,
+            ratio = B_logoImg.width / B_logoImg.height;
+          let dw = mh * ratio,
+            dh = mh;
+          if (dw > mw) {
+            dw = mw;
+            dh = dw / ratio;
+          }
+          ctx.globalAlpha = 0.95;
+          ctx.drawImage(B_logoImg, W / 2 - dw / 2, H * 0.09, dw, dh);
+          ctx.globalAlpha = 1;
+        } else {
+          ctx.strokeStyle = B.primary + "55";
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.roundRect(W / 2 - 55, H * 0.09, 110, 46, 8);
+          ctx.stroke();
+          ctx.fillStyle = "rgba(255,255,255,0.2)";
+          ctx.font = "9px Orbitron";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText("YOUR LOGO", W / 2, H * 0.09 + 23);
+          ctx.textBaseline = "alphabetic";
+        }
+
+        ctx.fillStyle = B.primary;
+        ctx.font = "bold 36px Orbitron";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "alphabetic";
+        ctx.shadowBlur = 0;
+        ctx.fillText("NICE CATCH!", W / 2, H * 0.305);
+
+        // Stats card
+        ctx.fillStyle = "rgba(255,255,255,0.05)";
+        ctx.beginPath();
+        ctx.roundRect(W / 2 - 150, H * 0.33, 300, 116, 14);
+        ctx.fill();
+        ctx.strokeStyle = B.primary + "44";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.roundRect(W / 2 - 150, H * 0.33, 300, 116, 14);
+        ctx.stroke();
+
+        ctx.fillStyle = "rgba(255,255,255,0.4)";
+        ctx.font = "10px Orbitron";
+        ctx.textAlign = "center";
+        ctx.fillText("SCORE", W / 2 - 72, H * 0.368);
+        ctx.fillText("BEST", W / 2 + 72, H * 0.368);
+        ctx.fillStyle = B.secondary;
+        ctx.font = "bold 42px Orbitron";
+        ctx.fillText(score, W / 2 - 72, H * 0.418);
+        ctx.fillStyle = "rgba(255,255,255,0.5)";
+        ctx.font = "bold 42px Orbitron";
+        ctx.fillText(best, W / 2 + 72, H * 0.418);
+
+        ctx.strokeStyle = "rgba(255,255,255,0.1)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(W / 2, H * 0.33 + 12);
+        ctx.lineTo(W / 2, H * 0.33 + 104);
+        ctx.stroke();
+
+        const isNewBest = score >= best && score > 0;
+        if (isNewBest) {
+          const p2 = Math.sin(frame * 0.1) * 0.07 + 1;
+          ctx.save();
+          ctx.translate(W / 2, H * 0.457);
+          ctx.scale(p2, p2);
+          ctx.fillStyle = B.accent;
+          ctx.font = "bold 13px Orbitron";
+          ctx.textAlign = "center";
+          ctx.fillText("🏆 NEW BEST!", 0, 0);
+          ctx.restore();
+        } else {
+          ctx.fillStyle = "rgba(255,255,255,0.0)"; // already shown in card
+        }
+
+        // CTA button
+        CTA_BTN.x = W / 2 - 120;
+        CTA_BTN.y = H * 0.51;
+        const ctaG = ctx.createLinearGradient(
+          CTA_BTN.x,
+          0,
+          CTA_BTN.x + CTA_BTN.w,
+          0,
+        );
+        ctaG.addColorStop(0, B.primary);
+        ctaG.addColorStop(1, B.accent);
+        ctx.fillStyle = ctaG;
+        ctx.beginPath();
+        ctx.roundRect(CTA_BTN.x, CTA_BTN.y, CTA_BTN.w, CTA_BTN.h, 14);
+        ctx.fill();
+        ctx.fillStyle = "#fff";
+        ctx.font = "bold 14px Orbitron";
+        ctx.textBaseline = "middle";
+        ctx.textAlign = "center";
+        ctx.fillText(B.ctaLabel, W / 2, CTA_BTN.y + CTA_BTN.h / 2);
+
+        // Try again
+        RETRY_BTN.x = W / 2 - 90;
+        RETRY_BTN.y = H * 0.614;
+        ctx.fillStyle = "rgba(255,255,255,0.08)";
+        ctx.beginPath();
+        ctx.roundRect(RETRY_BTN.x, RETRY_BTN.y, RETRY_BTN.w, RETRY_BTN.h, 12);
+        ctx.fill();
+        ctx.strokeStyle = "rgba(255,255,255,0.28)";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.roundRect(RETRY_BTN.x, RETRY_BTN.y, RETRY_BTN.w, RETRY_BTN.h, 12);
+        ctx.stroke();
+        ctx.fillStyle = "rgba(255,255,255,0.88)";
+        ctx.font = "bold 14px Orbitron";
+        ctx.textBaseline = "middle";
+        ctx.textAlign = "center";
+        ctx.fillText("↺  TRY AGAIN", W / 2, RETRY_BTN.y + RETRY_BTN.h / 2);
+        ctx.textBaseline = "alphabetic";
+        ctx.fillStyle = B.primary;
+        ctx.fillRect(0, H - 4, W, 4);
+      }
+
+      c.addEventListener("click", (e) => {
+        if (state !== "over") return;
+        const rect = c.getBoundingClientRect();
+        const cx = (e.clientX - rect.left) * (W / rect.width);
+        const cy = (e.clientY - rect.top) * (H / rect.height);
+        if (
+          cx > CTA_BTN.x &&
+          cx < CTA_BTN.x + CTA_BTN.w &&
+          cy > CTA_BTN.y &&
+          cy < CTA_BTN.y + CTA_BTN.h
+        ) {
+          window.open(B.cta, "_blank");
+          return;
+        }
+        if (
+          cx > RETRY_BTN.x &&
+          cx < RETRY_BTN.x + RETRY_BTN.w &&
+          cy > RETRY_BTN.y &&
+          cy < RETRY_BTN.y + RETRY_BTN.h
+        ) {
+          resetGame();
+          return;
+        }
+      });
+
+      function loop() {
+        requestAnimationFrame(loop);
+        frame++;
+        drawBg();
+
+        if (state === "start") {
+          drawStart();
+          return;
+        }
+        if (state === "over") {
+          drawOver();
+          return;
+        }
+
+        if (frame % Math.max(28, (55 - score * 0.4) | 0) === 0) spawnItem();
+        if (frame % 400 === 0) speed = Math.min(speed + 0.3, 6);
+        if (comboTimer > 0) comboTimer--;
+
+        for (let i = items.length - 1; i >= 0; i--) {
+          const it = items[i];
+          it.y += it.vy;
+          it.rot += it.spin;
+          // Catch check
+          const bx = basket.x,
+            by = basket.y;
+          if (
+            it.y + it.r > by &&
+            it.y - it.r < by + basket.h &&
+            it.x > bx - basket.w / 2 &&
+            it.x < bx + basket.w / 2
+          ) {
+            if (it.bad) {
+              lives--;
+              burst(it.x, it.y, B.bad, 14);
+              combo = 0;
+              items.splice(i, 1);
+              if (lives <= 0) {
+                if (score > best) best = score;
+                state = "over";
+              }
+              continue;
+            } else {
+              combo++;
+              comboTimer = 60;
+              const pts = combo > 2 ? combo : 1;
+              score += pts;
+              burst(it.x, it.y, B.primary, 10);
+              items.splice(i, 1);
+              continue;
+            }
+          }
+          if (it.y > H + 40) {
+            if (!it.bad) {
+              combo = 0;
+            }
+            items.splice(i, 1);
+          }
+        }
+
+        items.forEach(drawItem);
+        drawBasket();
+
+        for (let i = particles.length - 1; i >= 0; i--) {
+          const p = particles[i];
+          p.x += p.vx;
+          p.y += p.vy;
+          p.vy += 0.2;
+          p.life -= 0.04;
+          if (p.life <= 0) {
+            particles.splice(i, 1);
+            continue;
+          }
+          ctx.globalAlpha = p.life;
+          ctx.fillStyle = p.color;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, Math.max(0, p.r * p.life), 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+        drawHUD();
+      }
+      loop();
+
+      // ── CANVAS RECORDING ──
+      (function () {
+        let mr = null,
+          chunks = [];
+        window.addEventListener("message", (e) => {
+          if (e.data?.type === "startRecording") {
+            chunks = [];
+            const stream = document.getElementById("c").captureStream(60);
+            const mimeType = MediaRecorder.isTypeSupported(
+              "video/webm;codecs=vp9",
+            )
+              ? "video/webm;codecs=vp9"
+              : "video/webm";
+            mr = new MediaRecorder(stream, {
+              mimeType,
+              videoBitsPerSecond: 5_000_000,
+            });
+            mr.ondataavailable = (ev) => {
+              if (ev.data.size > 0) chunks.push(ev.data);
+            };
+            mr.onstop = () => {
+              const blob = new Blob(chunks, { type: mimeType });
+              const reader = new FileReader();
+              reader.onload = () => {
+                const base64 = reader.result.split(",")[1];
+                window.parent.postMessage(
+                  {
+                    type: "recordingBlob",
+                    gameId: e.data?.gameId || "game",
+                    blob64: base64,
+                    mimeType,
+                  },
+                  "*",
+                );
+              };
+              reader.readAsDataURL(blob);
+            };
+            mr.start(200);
+          }
+          if (e.data?.type === "stopRecording") {
+            if (mr && mr.state === "recording") {
+              // Pass gameId to onstop via closure trick
+              const gid = e.data.gameId;
+              mr.onstop = () => {
+                const blob = new Blob(chunks, {
+                  type: mr.mimeType || "video/webm",
+                });
+                const reader = new FileReader();
+                reader.onload = () => {
+                  const base64 = reader.result.split(",")[1];
+                  window.parent.postMessage(
+                    {
+                      type: "recordingBlob",
+                      gameId: gid,
+                      blob64: base64,
+                      mimeType: mr.mimeType || "video/webm",
+                    },
+                    "*",
+                  );
+                };
+                reader.readAsDataURL(blob);
+              };
+              mr.stop();
+            }
+          }
+        });
+      })();
+    </script>
+  </body>
+</html>

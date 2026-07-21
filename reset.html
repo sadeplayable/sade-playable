@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Reset Password — Sade</title>
+
+    <link
+      href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600&family=Inter:wght@300;400;500&display=swap"
+      rel="stylesheet"
+    />
+
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        background: #0a0a0a;
+        color: white;
+        font-family: "Inter", sans-serif;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 32px;
+      }
+
+      .logo {
+        width: 120px;
+      }
+
+      .card {
+        background: #111;
+        border: 1px solid rgba(0, 255, 247, 0.3);
+        border-radius: 16px;
+        padding: 40px;
+        width: 90%;
+        max-width: 400px;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        box-shadow:
+          0 0 30px rgba(0, 255, 247, 0.1),
+          0 0 60px rgba(255, 77, 240, 0.05);
+      }
+
+      h2 {
+        font-family: "Orbitron", sans-serif;
+        font-size: 20px;
+        text-align: center;
+      }
+
+      input {
+        width: 100%;
+        padding: 14px 16px;
+        border-radius: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        background: rgba(255, 255, 255, 0.03);
+        color: white;
+        font-size: 15px;
+        font-family: "Inter", sans-serif;
+        transition: 0.3s;
+      }
+
+      input:focus {
+        outline: none;
+        border-color: #00fff7;
+        box-shadow: 0 0 12px rgba(0, 255, 247, 0.4);
+      }
+
+      button {
+        padding: 14px;
+        border-radius: 10px;
+        border: 2px solid #fff;
+        background: transparent;
+        color: white;
+        font-family: "Orbitron", sans-serif;
+        font-size: 14px;
+        cursor: pointer;
+        transition: 0.3s;
+      }
+
+      button:hover {
+        box-shadow:
+          0 0 20px #00fff7,
+          0 0 40px #ff4df0;
+      }
+
+      #message {
+        text-align: center;
+        font-size: 14px;
+        min-height: 20px;
+        color: #00fff7;
+      }
+
+      #message.error {
+        color: #ff4df0;
+      }
+    </style>
+  </head>
+
+  <body>
+    <img src="Logo.gif" class="logo" />
+
+    <div class="card">
+      <h2>Set New Password</h2>
+
+      <input type="password" id="newPassword" placeholder="New password" />
+      <input
+        type="password"
+        id="confirmPassword"
+        placeholder="Confirm password"
+      />
+
+      <button id="resetBtn">Update Password</button>
+
+      <p id="message"></p>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+    <script>
+      const client = supabase.createClient(
+        "https://jsqnbafwdjojvfldylok.supabase.co",
+        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpzcW5iYWZ3ZGpvanZmbGR5bG9rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQxMDQ4MzQsImV4cCI6MjA4OTY4MDgzNH0.yB_O_qUjIE2x9lrPWrtU4N7pzMMgYNLmEpRyMcGx4rw",
+      );
+
+      const msg = document.getElementById("message");
+
+      function showMsg(text, isError = false) {
+        msg.textContent = text;
+        msg.className = isError ? "error" : "";
+      }
+
+      // Supabase sends the user back here with a session in the URL hash.
+      // We need to let the SDK pick it up automatically.
+      client.auth.onAuthStateChange(async (event, session) => {
+        if (event === "PASSWORD_RECOVERY") {
+          // User is authenticated via the reset link — show the form
+          document.getElementById("resetBtn").disabled = false;
+        }
+      });
+
+      document
+        .getElementById("resetBtn")
+        .addEventListener("click", async () => {
+          const newPass = document.getElementById("newPassword").value;
+          const confirm = document.getElementById("confirmPassword").value;
+
+          if (!newPass || newPass.length < 6) {
+            return showMsg("Password must be at least 6 characters.", true);
+          }
+
+          if (newPass !== confirm) {
+            return showMsg("Passwords don't match.", true);
+          }
+
+          const { error } = await client.auth.updateUser({ password: newPass });
+
+          if (error) {
+            showMsg(error.message, true);
+          } else {
+            showMsg("Password updated! Redirecting...");
+            setTimeout(() => (window.location.href = "index.html"), 2000);
+          }
+        });
+    </script>
+  </body>
+</html>

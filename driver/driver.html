@@ -1,0 +1,1565 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width,initial-scale=1,user-scalable=no"
+    />
+    <title>Hill Driver — Playable Ad</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@700;800;900&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: #1a0a2e;
+        font-family: "Fredoka One", cursive;
+        touch-action: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      canvas {
+        display: block;
+        width: 100% !important;
+        height: 100% !important;
+        object-fit: contain;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="c"></canvas>
+    <script>
+      const c = document.getElementById("c"),
+        ctx = c.getContext("2d");
+      const W = 390,
+        H = 844;
+      c.width = W;
+      c.height = H;
+
+      // ── BRAND CONFIG ──
+      const B = {
+        name: "YOUR BRAND",
+        tagline: "YOUR TAGLINE",
+        carColor: "#e63535",
+        carColor2: "#c41f1f",
+        wheelColor: "#222",
+        hubColor: "#888",
+        primary: "#FFD700",
+        secondary: "#ff6b35",
+        skyTop: "#4ec0f7",
+        skyBot: "#a8e4ff",
+        groundTop: "#5cb85c",
+        groundMid: "#8B6914",
+        groundBot: "#6b4f10",
+        cta: "https://sadeplayable.com/",
+        ctaLabel: "VISIT US →",
+      };
+
+      // ── BRAND IMAGES (loaded from sessionStorage) ──
+      let B_logoImg = null; // logo shown on start/end screen
+      let B_carImg = null; // replaces drawn car
+      let B_coinImg = null; // replaces coin circle
+      let B_fuelImg = null; // replaces fuel can
+
+      function loadBrandImage(src, onLoad) {
+        if (!src) return;
+        const img = new Image();
+        img.onload = () => onLoad(img);
+        img.src = src;
+      }
+
+      try {
+        const raw = sessionStorage.getItem("driverBrand");
+        if (raw) {
+          const cfg = JSON.parse(raw);
+          // Colors — map to what the game actually uses
+          if (cfg.color1) {
+            B.primary = cfg.color1;
+            B.carColor = cfg.color1;
+          }
+          if (cfg.color2) {
+            B.secondary = cfg.color2;
+            B.carColor2 = cfg.color2;
+          }
+          if (cfg.color3) {
+            B.skyTop = cfg.color3;
+          }
+          if (cfg.color4) {
+            B.skyBot = cfg.color4;
+          }
+          if (cfg.cta) B.cta = cfg.cta;
+          // Images
+          loadBrandImage(cfg.logo, (img) => {
+            B_logoImg = img;
+          });
+          loadBrandImage(cfg.car, (img) => {
+            B_carImg = img;
+          });
+          loadBrandImage(cfg.coin, (img) => {
+            B_coinImg = img;
+          });
+          loadBrandImage(cfg.fuel, (img) => {
+            B_fuelImg = img;
+          });
+        }
+      } catch (e) {}
+
+      // ── TERRAIN ──
+      const SEG = 6; // pixels per terrain segment
+      const TERRAIN_LEN = 600; // segments ahead
+      let terrain = [];
+      let terrainOff = 0; // world X offset (scrolls right)
+
+      function genTerrain() {
+        terrain = [];
+        let y = H * 0.62;
+        for (let i = 0; i < TERRAIN_LEN; i++) {
+          // hilly noise
+          y += (Math.random() - 0.48) * 14;
+          y = Math.max(H * 0.35, Math.min(H * 0.72, y));
+          terrain.push(y);
+        }
+        // flatten start
+        for (let i = 0; i < 20; i++) terrain[i] = H * 0.62;
+      }
+
+      function getTerrainY(worldX) {
+        const idx = worldX / SEG;
+        const i = Math.floor(idx);
+        const t = idx - i;
+        const a =
+          terrain[Math.max(0, Math.min(terrain.length - 1, i))] || H * 0.62;
+        const b =
+          terrain[Math.max(0, Math.min(terrain.length - 1, i + 1))] || H * 0.62;
+        return a + (b - a) * t;
+      }
+
+      function getTerrainAngle(worldX) {
+        const y1 = getTerrainY(worldX - SEG);
+        const y2 = getTerrainY(worldX + SEG);
+        return Math.atan2(y2 - y1, SEG * 2);
+      }
+
+      // ── GAME STATE ──
+      let state = "start"; // start | play | over
+      let deathReason = "flipped"; // flipped | fuel | fell
+      let score = 0,
+        best = 0,
+        frame = 0,
+        coins = 0;
+
+      // Car physics
+      const CAR = {
+        worldX: 80,
+        y: 0,
+        vx: 0,
+        vy: 0,
+        angle: 0,
+        angVel: 0,
+        onGround: false,
+        w: 90,
+        h: 44,
+        wheel1X: -28,
+        wheel2X: 28,
+        wheelR: 16,
+        wheelAngle: 0,
+        fuel: 1.0, // 0–1
+        dead: false,
+      };
+
+      let gasDown = false,
+        brakeDown = false;
+      let camX = 0; // camera world X
+
+      // Collectibles
+      let coinList = [];
+      let fuelCans = [];
+      let particles = [];
+      let clouds = [];
+
+      function resetGame() {
+        genTerrain();
+        CAR.worldX = 80;
+        CAR.y = getTerrainY(80) - CAR.wheelR;
+        CAR.vx = 0;
+        CAR.vy = 0;
+        CAR.angle = 0;
+        CAR.angVel = 0;
+        CAR.onGround = false;
+        CAR.dead = false;
+        CAR.fuel = 1.0;
+        CAR.wheelAngle = 0;
+        score = 0;
+        frame = 0;
+        coins = 0;
+        camX = 0;
+        coinList = [];
+        fuelCans = [];
+        particles = [];
+        clouds = [];
+        // gen clouds
+        for (let i = 0; i < 8; i++) {
+          clouds.push({
+            x: Math.random() * W * 3,
+            y: 60 + Math.random() * 140,
+            r: 30 + Math.random() * 50,
+            speed: 0.2 + Math.random() * 0.3,
+          });
+        }
+        // spawn some coins ahead
+        for (let i = 0; i < 30; i++)
+          spawnCoin((i + 3) * 180 + Math.random() * 80);
+        for (let i = 0; i < 8; i++)
+          spawnFuel((i + 4) * 400 + Math.random() * 100);
+        state = "play";
+      }
+
+      function spawnCoin(worldX) {
+        const ty = getTerrainY(worldX);
+        coinList.push({
+          worldX,
+          y: ty - 60 - Math.random() * 40,
+          r: 12,
+          collected: false,
+          anim: 0,
+        });
+      }
+
+      function spawnFuel(worldX) {
+        const ty = getTerrainY(worldX);
+        fuelCans.push({ worldX, y: ty - 50, collected: false, anim: 0 });
+      }
+
+      // ── PHYSICS ──
+      const GRAVITY = 0.5;
+      const GAS_POWER = 0.18;
+      const BRAKE_POWER = 0.12;
+      const FRICTION = 0.985;
+      const BOUNCE = 0.35;
+      const MAX_VX = 6;
+
+      function physicsStep() {
+        if (CAR.dead) return;
+
+        // Gas / brake
+        const onSlope = getTerrainAngle(CAR.worldX);
+        if (gasDown && CAR.fuel > 0) {
+          CAR.vx += GAS_POWER * Math.cos(onSlope);
+          CAR.vy += GAS_POWER * Math.sin(onSlope) * 0.3;
+          CAR.fuel = Math.max(0, CAR.fuel - 0.0008);
+        }
+        if (brakeDown) {
+          CAR.vx -= BRAKE_POWER;
+        }
+        CAR.vx = Math.max(-1, Math.min(MAX_VX, CAR.vx));
+
+        // Gravity
+        CAR.vy += GRAVITY;
+
+        // Move
+        CAR.worldX += CAR.vx;
+        CAR.y += CAR.vy;
+        CAR.wheelAngle += CAR.vx * 0.06;
+
+        // Terrain collision — check two wheel positions
+        const w1y = getTerrainY(CAR.worldX + CAR.wheel1X);
+        const w2y = getTerrainY(CAR.worldX + CAR.wheel2X);
+        const avgTerrain = (w1y + w2y) / 2;
+        const targetY = avgTerrain - CAR.wheelR;
+
+        if (CAR.y >= targetY) {
+          CAR.y = targetY;
+          if (CAR.vy > 6) {
+            // hard landing, flip check
+            if (Math.abs(CAR.angle) > 1.2) {
+              CAR.dead = true;
+              return;
+            }
+          }
+          CAR.vy *= -BOUNCE;
+          if (Math.abs(CAR.vy) < 1) CAR.vy = 0;
+          CAR.onGround = true;
+          CAR.vx *= FRICTION;
+          // align car angle to slope
+          const targetAngle = getTerrainAngle(CAR.worldX);
+          CAR.angle += (targetAngle - CAR.angle) * 0.25;
+          CAR.angVel *= 0.5;
+        } else {
+          CAR.onGround = false;
+          // air rotation
+          if (gasDown) CAR.angVel += 0.008;
+          if (brakeDown) CAR.angVel -= 0.008;
+          CAR.angVel *= 0.97;
+          CAR.angle += CAR.angVel;
+        }
+
+        // Flip death
+        if (CAR.angle > 1.8 || CAR.angle < -1.8) {
+          if (!CAR.dead) {
+            CAR.dead = true;
+            deathReason = "flipped";
+            burst(CAR.worldX - camX, CAR.y, "#ff4444", 24);
+            if (score > best) best = score;
+            setTimeout(() => {
+              state = "over";
+            }, 1000);
+          }
+          return;
+        }
+
+        // Fell off world
+        if (CAR.y > H + 100) {
+          if (!CAR.dead) {
+            CAR.dead = true;
+            deathReason = "fell";
+            if (score > best) best = score;
+            setTimeout(() => {
+              state = "over";
+            }, 500);
+          }
+          return;
+        }
+
+        // Out of fuel (stopped)
+        if (CAR.fuel <= 0 && CAR.onGround && Math.abs(CAR.vx) < 0.15) {
+          if (!CAR.dead) {
+            CAR.dead = true;
+            deathReason = "fuel";
+            if (score > best) best = score;
+            setTimeout(() => {
+              state = "over";
+            }, 1200);
+          }
+          return;
+        }
+
+        // Camera
+        camX += (CAR.worldX - 100 - camX) * 0.1;
+        camX = Math.max(0, camX);
+
+        // Score
+        if (frame % 30 === 0) score = Math.floor(CAR.worldX / 10);
+
+        // Coins
+        for (let i = coinList.length - 1; i >= 0; i--) {
+          const coin = coinList[i];
+          if (coin.collected) continue;
+          const dx = coin.worldX - CAR.worldX;
+          const dy = coin.y - CAR.y;
+          if (Math.hypot(dx, dy) < coin.r + 20) {
+            coin.collected = true;
+            coins++;
+            burst(coin.worldX - camX, coin.y, B.primary, 8);
+          }
+          // spawn more ahead
+        }
+        // spawn coins dynamically
+        const ahead = camX + W + 400;
+        if (coinList.length < 40) {
+          const lastCoin = coinList[coinList.length - 1];
+          if (!lastCoin || lastCoin.worldX < ahead) {
+            spawnCoin(ahead + Math.random() * 120);
+          }
+        }
+
+        // Fuel cans
+        for (let i = fuelCans.length - 1; i >= 0; i--) {
+          const f = fuelCans[i];
+          if (f.collected) continue;
+          const dx = f.worldX - CAR.worldX;
+          const dy = f.y - CAR.y;
+          if (Math.hypot(dx, dy) < 30) {
+            f.collected = true;
+            CAR.fuel = Math.min(1, CAR.fuel + 0.4);
+            burst(f.worldX - camX, f.y, "#ff6b35", 10);
+          }
+        }
+        const aheadF = camX + W + 800;
+        if (fuelCans.length < 12) {
+          const lastF = fuelCans[fuelCans.length - 1];
+          if (!lastF || lastF.worldX < aheadF) {
+            spawnFuel(aheadF + Math.random() * 200);
+          }
+        }
+
+        // Generate more terrain
+        const needIdx = Math.floor((camX + W + 500) / SEG) + 5;
+        while (terrain.length < needIdx) {
+          const last = terrain[terrain.length - 1] || H * 0.62;
+          let next = last + (Math.random() - 0.48) * 14;
+          next = Math.max(H * 0.35, Math.min(H * 0.72, next));
+          terrain.push(next);
+        }
+      }
+
+      // ── PARTICLES ──
+      function burst(sx, sy, color, n = 10) {
+        for (let i = 0; i < n; i++) {
+          const a = Math.random() * Math.PI * 2,
+            s = 2 + Math.random() * 5;
+          particles.push({
+            x: sx,
+            y: sy,
+            vx: Math.cos(a) * s,
+            vy: Math.sin(a) * s - 2,
+            life: 1,
+            color,
+          });
+        }
+      }
+
+      // ── DRAW TERRAIN ──
+      function drawTerrain() {
+        // Ground fill
+        ctx.beginPath();
+        ctx.moveTo(0, H);
+        for (let sx = 0; sx <= W + SEG; sx += SEG) {
+          const wx = camX + sx;
+          const ty = getTerrainY(wx);
+          ctx.lineTo(sx, ty);
+        }
+        ctx.lineTo(W, H);
+        ctx.closePath();
+
+        // Layered fill: grass top, dirt mid, dark bottom
+        const terrGrad = ctx.createLinearGradient(0, H * 0.4, 0, H);
+        terrGrad.addColorStop(0, "#68bb47");
+        terrGrad.addColorStop(0.06, "#5aa33e");
+        terrGrad.addColorStop(0.08, "#8B6914");
+        terrGrad.addColorStop(0.5, "#6b4f10");
+        terrGrad.addColorStop(1, "#3d2a05");
+        ctx.fillStyle = terrGrad;
+        ctx.fill();
+
+        // Grass bumps strip on top edge
+        ctx.beginPath();
+        for (let sx = 0; sx <= W + SEG; sx += SEG) {
+          const wx = camX + sx;
+          const ty = getTerrainY(wx);
+          if (sx === 0) ctx.moveTo(sx, ty);
+          else ctx.lineTo(sx, ty);
+        }
+        ctx.strokeStyle = "#5aa33e";
+        ctx.lineWidth = 6;
+        ctx.stroke();
+
+        // Little grass tufts
+        ctx.strokeStyle = "#7ccc52";
+        ctx.lineWidth = 2;
+        for (let sx = 4; sx <= W; sx += 20) {
+          const wx = camX + sx;
+          const ty = getTerrainY(wx);
+          const offset = wx % 17;
+          for (let g = 0; g < 3; g++) {
+            const gx = sx + g * 5 - 5 + (offset % 5);
+            ctx.beginPath();
+            ctx.moveTo(gx, ty);
+            ctx.lineTo(gx - 2, ty - 7 - (offset % 4));
+            ctx.stroke();
+          }
+        }
+
+        // Dirt texture circles
+        ctx.fillStyle = "rgba(0,0,0,0.07)";
+        for (let i = 0; i < 15; i++) {
+          const bx = ((i * 137 + Math.floor(camX / 50) * 50) % (W + 100)) - 50;
+          const by = H * 0.65 + ((i * 53) % 80);
+          ctx.beginPath();
+          ctx.ellipse(bx, by, 18 + (i % 12), 10, 0, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      // ── DRAW SKY ──
+      function drawSky() {
+        const skyGrad = ctx.createLinearGradient(0, 0, 0, H * 0.65);
+        skyGrad.addColorStop(0, B.skyTop);
+        skyGrad.addColorStop(0.5, B.skyTop + "cc");
+        skyGrad.addColorStop(1, B.skyBot);
+        ctx.fillStyle = skyGrad;
+        ctx.fillRect(0, 0, W, H);
+      }
+
+      // ── DRAW CLOUDS ──
+      function drawClouds() {
+        clouds.forEach((cl) => {
+          const sx =
+            ((((cl.x - camX * cl.speed) % (W * 2 + 200)) + W * 2 + 200) %
+              (W * 2 + 200)) -
+            100;
+          drawCloud(sx, cl.y, cl.r);
+        });
+      }
+
+      function drawCloud(x, y, r) {
+        ctx.fillStyle = "rgba(255,255,255,0.88)";
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.arc(x + r * 0.7, y - r * 0.3, r * 0.7, 0, Math.PI * 2);
+        ctx.arc(x - r * 0.6, y - r * 0.1, r * 0.6, 0, Math.PI * 2);
+        ctx.arc(x + r * 1.2, y + r * 0.1, r * 0.55, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      function drawWheel(ox, oy, angle, r) {
+        ctx.save();
+        ctx.translate(ox, oy);
+
+        // Tire shadow
+        ctx.fillStyle = "rgba(0,0,0,0.2)";
+        ctx.beginPath();
+        ctx.ellipse(2, 3, r - 1, r - 3, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Tire
+        ctx.fillStyle = "#1a1a1a";
+        ctx.beginPath();
+        ctx.arc(0, 0, r, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Tread lines
+        ctx.strokeStyle = "#333";
+        ctx.lineWidth = 2;
+        for (let t = 0; t < 6; t++) {
+          const ta = angle + (t * Math.PI) / 3;
+          ctx.beginPath();
+          ctx.moveTo(Math.cos(ta) * (r - 4), Math.sin(ta) * (r - 4));
+          ctx.lineTo(Math.cos(ta) * r, Math.sin(ta) * r);
+          ctx.stroke();
+        }
+
+        // Hub
+        ctx.fillStyle = "#aaa";
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 0.42, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Hub spokes
+        ctx.strokeStyle = "#888";
+        ctx.lineWidth = 2;
+        for (let s = 0; s < 5; s++) {
+          const sa = angle + (s * Math.PI * 2) / 5;
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          ctx.lineTo(Math.cos(sa) * r * 0.38, Math.sin(sa) * r * 0.38);
+          ctx.stroke();
+        }
+
+        // Hub cap center
+        ctx.fillStyle = "#ccc";
+        ctx.beginPath();
+        ctx.arc(0, 0, 4, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.restore();
+      }
+
+      // ── DRAW CAR (side view) ──
+      function drawCarSide(screenX, screenY, angle) {
+        ctx.save();
+        ctx.translate(screenX, screenY);
+        ctx.rotate(angle);
+
+        const cw = CAR.w,
+          ch = CAR.h;
+        const wR = CAR.wheelR;
+
+        // Shadow
+        ctx.save();
+        ctx.rotate(-angle);
+        ctx.fillStyle = "rgba(0,0,0,0.18)";
+        ctx.beginPath();
+        ctx.ellipse(0, wR + 4, cw * 0.55, 8, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+
+        if (B_carImg) {
+          // Custom brand car image — no flip (user uploads facing right)
+          const iw = cw * 1.6,
+            ih = (iw / B_carImg.width) * B_carImg.height;
+          ctx.drawImage(B_carImg, -iw / 2, -ih * 0.78, iw, ih);
+          // No wheels, no driver — image handles everything
+        } else {
+          // Default drawn car with wheels + driver
+          // Chassis / body lower
+          ctx.fillStyle = B.carColor2;
+          ctx.beginPath();
+          ctx.roundRect(-cw / 2, -ch * 0.15, cw, ch * 0.45, 6);
+          ctx.fill();
+
+          // Car body upper (cabin)
+          ctx.fillStyle = B.carColor;
+          ctx.beginPath();
+          ctx.moveTo(-cw * 0.38, -ch * 0.15);
+          ctx.lineTo(-cw * 0.28, -ch * 0.72);
+          ctx.lineTo(cw * 0.22, -ch * 0.72);
+          ctx.lineTo(cw * 0.48, -ch * 0.15);
+          ctx.closePath();
+          ctx.fill();
+
+          // Windshield
+          ctx.fillStyle = "rgba(140, 210, 255, 0.75)";
+          ctx.beginPath();
+          ctx.moveTo(-cw * 0.22, -ch * 0.18);
+          ctx.lineTo(-cw * 0.14, -ch * 0.65);
+          ctx.lineTo(cw * 0.16, -ch * 0.65);
+          ctx.lineTo(cw * 0.34, -ch * 0.18);
+          ctx.closePath();
+          ctx.fill();
+          // Windshield glare
+          ctx.fillStyle = "rgba(255,255,255,0.3)";
+          ctx.beginPath();
+          ctx.moveTo(-cw * 0.18, -ch * 0.22);
+          ctx.lineTo(-cw * 0.1, -ch * 0.58);
+          ctx.lineTo(-cw * 0.02, -ch * 0.58);
+          ctx.lineTo(-cw * 0.06, -ch * 0.22);
+          ctx.closePath();
+          ctx.fill();
+
+          // Headlight
+          ctx.fillStyle = "#fffde0";
+          ctx.shadowColor = "#ffe066";
+          ctx.shadowBlur = 8;
+          ctx.beginPath();
+          ctx.ellipse(cw * 0.44, -ch * 0.08, 7, 5, 0.3, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.shadowBlur = 0;
+
+          // Tail light
+          ctx.fillStyle = "#ff3333";
+          ctx.beginPath();
+          ctx.ellipse(-cw * 0.44, -ch * 0.05, 5, 4, -0.2, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Body line detail
+          ctx.strokeStyle = "rgba(0,0,0,0.18)";
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(-cw * 0.48, -ch * 0.02);
+          ctx.lineTo(cw * 0.48, -ch * 0.02);
+          ctx.stroke();
+
+          // Brand label on door
+          if (B_logoImg) {
+            const lw = 36,
+              lh = 18;
+            const ratio = B_logoImg.width / B_logoImg.height;
+            let dw = lh * ratio,
+              dh = lh;
+            if (dw > lw) {
+              dw = lw;
+              dh = dw / ratio;
+            }
+            ctx.globalAlpha = 0.9;
+            ctx.drawImage(B_logoImg, -dw / 2, -ch * 0.12, dw, dh);
+            ctx.globalAlpha = 1;
+          } else {
+            ctx.fillStyle = "rgba(255,255,255,0.9)";
+            ctx.font = "bold 9px Fredoka One";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText(B.name, 0, -ch * 0.04);
+          }
+
+          // Exhaust puff (when gas)
+          if (gasDown && !CAR.dead) {
+            for (let i = 0; i < 2; i++) {
+              const px = -cw / 2 - 5 - i * 8;
+              const py = ch * 0.22;
+              ctx.fillStyle = `rgba(180,180,180,${0.5 - i * 0.2})`;
+              ctx.beginPath();
+              ctx.arc(px, py, 4 + i * 3, 0, Math.PI * 2);
+              ctx.fill();
+            }
+          }
+
+          // Wheels only for default car
+          drawWheel(-CAR.wheel2X, wR, CAR.wheelAngle, wR); // rear
+          drawWheel(CAR.wheel1X, wR, CAR.wheelAngle, wR); // front
+        }
+
+        ctx.restore();
+      }
+      function drawDriver(screenX, screenY, angle) {
+        ctx.save();
+        ctx.translate(screenX, screenY);
+        ctx.rotate(angle);
+        const ch = CAR.h;
+
+        // Body
+        ctx.fillStyle = "#cc4400";
+        ctx.beginPath();
+        ctx.roundRect(-8, -ch * 0.72 - 16, 16, 16, 4);
+        ctx.fill();
+
+        // Head
+        ctx.fillStyle = "#f5c5a3";
+        ctx.beginPath();
+        ctx.arc(0, -ch * 0.72 - 20, 9, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Helmet
+        ctx.fillStyle = B.carColor;
+        ctx.beginPath();
+        ctx.arc(0, -ch * 0.72 - 21, 10, Math.PI, Math.PI * 2);
+        ctx.fill();
+
+        // Visor
+        ctx.fillStyle = "rgba(0,150,255,0.6)";
+        ctx.beginPath();
+        ctx.arc(3, -ch * 0.72 - 19, 7, Math.PI * 1.1, Math.PI * 1.85);
+        ctx.fill();
+
+        ctx.restore();
+      }
+
+      // ── DRAW COINS ──
+      function drawCoins() {
+        coinList.forEach((coin) => {
+          if (coin.collected) return;
+          const sx = coin.worldX - camX;
+          if (sx < -30 || sx > W + 30) return;
+          coin.anim = (coin.anim || 0) + 0.08;
+          const bob = Math.sin(coin.anim) * 4;
+
+          ctx.save();
+          ctx.translate(sx, coin.y + bob);
+
+          if (B_coinImg) {
+            // Custom coin image
+            const sz = coin.r * 2.2;
+            ctx.drawImage(B_coinImg, -sz / 2, -sz / 2, sz, sz);
+          } else {
+            // Default gold coin
+            ctx.shadowColor = B.primary;
+            ctx.shadowBlur = 10;
+            ctx.fillStyle = B.primary;
+            ctx.beginPath();
+            ctx.arc(0, 0, coin.r, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+            ctx.fillStyle = "rgba(255,255,255,0.4)";
+            ctx.beginPath();
+            ctx.arc(-3, -3, 4, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = "#8B5000";
+            ctx.font = "bold 8px Fredoka One";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText("$", 0, 1);
+          }
+
+          ctx.restore();
+        });
+      }
+
+      // ── DRAW FUEL CANS ──
+      function drawFuelCans() {
+        fuelCans.forEach((f) => {
+          if (f.collected) return;
+          const sx = f.worldX - camX;
+          if (sx < -30 || sx > W + 30) return;
+          f.anim = (f.anim || 0) + 0.05;
+          const bob = Math.sin(f.anim) * 3;
+
+          ctx.save();
+          ctx.translate(sx, f.y + bob);
+
+          if (B_fuelImg) {
+            // Custom fuel image
+            const fw = 40,
+              fh = (fw / B_fuelImg.width) * B_fuelImg.height;
+            ctx.drawImage(B_fuelImg, -fw / 2, -fh / 2, fw, fh);
+          } else {
+            // Default red fuel can
+            ctx.fillStyle = "#cc2200";
+            ctx.beginPath();
+            ctx.roundRect(-10, -18, 20, 24, 4);
+            ctx.fill();
+            ctx.fillStyle = "rgba(255,100,80,0.5)";
+            ctx.beginPath();
+            ctx.roundRect(-7, -15, 7, 14, 3);
+            ctx.fill();
+            ctx.fillStyle = "#aa1100";
+            ctx.beginPath();
+            ctx.roundRect(6, -22, 6, 8, 2);
+            ctx.fill();
+            ctx.fillStyle = "#888";
+            ctx.beginPath();
+            ctx.roundRect(5, -24, 8, 4, 1);
+            ctx.fill();
+            ctx.strokeStyle = "#aa1100";
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(0, -20, 7, Math.PI, 0);
+            ctx.stroke();
+            ctx.fillStyle = "rgba(255,255,255,0.85)";
+            ctx.font = "11px serif";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText("⛽", 0, -5);
+          }
+
+          ctx.restore();
+        });
+      }
+
+      // ── HUD ──
+      function drawHUD() {
+        // Coin counter (top left like HCR)
+        ctx.fillStyle = "rgba(0,0,0,0.45)";
+        ctx.beginPath();
+        ctx.roundRect(10, 10, 130, 40, 20);
+        ctx.fill();
+
+        // Coin icon
+        ctx.fillStyle = B.primary;
+        ctx.shadowColor = B.primary;
+        ctx.shadowBlur = 8;
+        ctx.beginPath();
+        ctx.arc(30, 30, 12, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = "#8B5000";
+        ctx.font = "bold 10px Fredoka One";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("$", 30, 31);
+
+        ctx.fillStyle = "#fff";
+        ctx.font = "bold 20px Fredoka One";
+        ctx.textAlign = "left";
+        ctx.textBaseline = "middle";
+        ctx.fillText(coins.toLocaleString(), 48, 30);
+
+        // Distance (top right)
+        ctx.fillStyle = "rgba(0,0,0,0.45)";
+        ctx.beginPath();
+        ctx.roundRect(W - 140, 10, 130, 40, 20);
+        ctx.fill();
+        ctx.fillStyle = "#fff";
+        ctx.font = "bold 16px Fredoka One";
+        ctx.textAlign = "right";
+        ctx.textBaseline = "middle";
+        ctx.fillText(score + "m", W - 18, 30);
+        ctx.fillStyle = "rgba(255,255,255,0.55)";
+        ctx.font = "11px Fredoka One";
+        ctx.fillText("BEST: " + best + "m", W - 18, 44);
+
+        // Fuel bar (bottom center)
+        const fuelW = 160,
+          fuelH = 18;
+        const fuelX = W / 2 - fuelW / 2,
+          fuelY = H - 110;
+
+        ctx.fillStyle = "rgba(0,0,0,0.5)";
+        ctx.beginPath();
+        ctx.roundRect(fuelX - 40, fuelY - 6, fuelW + 60, fuelH + 12, 16);
+        ctx.fill();
+
+        // Fuel icon
+        ctx.font = "16px serif";
+        ctx.textAlign = "center";
+        ctx.fillText("⛽", fuelX - 20, fuelY + fuelH / 2 + 1);
+
+        // Bar background
+        ctx.fillStyle = "rgba(255,255,255,0.15)";
+        ctx.beginPath();
+        ctx.roundRect(fuelX, fuelY, fuelW, fuelH, 8);
+        ctx.fill();
+
+        // Bar fill
+        const fuelPct = CAR.fuel;
+        const fuelColor =
+          fuelPct > 0.5 ? "#4cff4c" : fuelPct > 0.25 ? "#ffcc00" : "#ff4444";
+        const barGrad = ctx.createLinearGradient(fuelX, 0, fuelX + fuelW, 0);
+        barGrad.addColorStop(0, fuelColor);
+        barGrad.addColorStop(1, fuelColor + "99");
+        ctx.fillStyle = barGrad;
+        ctx.beginPath();
+        ctx.roundRect(fuelX, fuelY, fuelW * fuelPct, fuelH, 8);
+        ctx.fill();
+
+        // Bar label
+        ctx.fillStyle = "#fff";
+        ctx.font = "bold 10px Fredoka One";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("FUEL", fuelX + fuelW + 20, fuelY + fuelH / 2);
+
+        // Controls hint
+        ctx.fillStyle = "rgba(255,255,255,0.4)";
+        ctx.font = "11px Fredoka One";
+        ctx.textAlign = "center";
+        ctx.fillText("Hold GAS / BRAKE to drive", W / 2, H - 52);
+
+        // GAS button
+        const btnY = H - 42,
+          btnH = 36,
+          btnW = 90;
+        // Brake
+        ctx.fillStyle = brakeDown
+          ? "rgba(255,100,50,0.9)"
+          : "rgba(255,255,255,0.18)";
+        ctx.beginPath();
+        ctx.roundRect(12, btnY, btnW, btnH, 14);
+        ctx.fill();
+        ctx.strokeStyle = "rgba(255,255,255,0.5)";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.roundRect(12, btnY, btnW, btnH, 14);
+        ctx.stroke();
+        ctx.fillStyle = "#fff";
+        ctx.font = "bold 14px Fredoka One";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("⬅ BRAKE", 12 + btnW / 2, btnY + btnH / 2);
+
+        // Gas
+        ctx.fillStyle = gasDown
+          ? "rgba(50,220,80,0.9)"
+          : "rgba(255,255,255,0.18)";
+        ctx.beginPath();
+        ctx.roundRect(W - 12 - btnW, btnY, btnW, btnH, 14);
+        ctx.fill();
+        ctx.strokeStyle = "rgba(255,255,255,0.5)";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.roundRect(W - 12 - btnW, btnY, btnW, btnH, 14);
+        ctx.stroke();
+        ctx.fillStyle = "#fff";
+        ctx.font = "bold 14px Fredoka One";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("GAS ➡", W - 12 - btnW / 2, btnY + btnH / 2);
+      }
+
+      // ── START SCREEN ──
+      function drawStart() {
+        // Full world behind
+        drawSky();
+        drawClouds();
+        drawTerrain();
+
+        // Car preview sitting on terrain
+        const previewX = W / 2;
+        const previewWorldX = camX + previewX;
+        const ty = getTerrainY(previewWorldX);
+        const ang = getTerrainAngle(previewWorldX);
+        drawCarSide(previewX, ty - CAR.wheelR, ang);
+        if (!B_carImg) drawDriver(previewX, ty - CAR.wheelR, ang);
+
+        // Full-screen dark gradient overlay
+        const overlayGrad = ctx.createLinearGradient(0, 0, 0, H);
+        overlayGrad.addColorStop(0, "rgba(0,0,0,0.82)");
+        overlayGrad.addColorStop(0.5, "rgba(0,0,0,0.65)");
+        overlayGrad.addColorStop(1, "rgba(0,0,0,0.85)");
+        ctx.fillStyle = overlayGrad;
+        ctx.fillRect(0, 0, W, H);
+
+        // Top brand color accent bar
+        ctx.fillStyle = B.primary;
+        ctx.fillRect(0, 0, W, 4);
+
+        // Logo — upper third
+        if (B_logoImg) {
+          const maxW = 180,
+            maxH = 70;
+          const ratio = B_logoImg.width / B_logoImg.height;
+          let dw = maxH * ratio,
+            dh = maxH;
+          if (dw > maxW) {
+            dw = maxW;
+            dh = dw / ratio;
+          }
+          ctx.globalAlpha = 0.97;
+          ctx.drawImage(B_logoImg, W / 2 - dw / 2, H * 0.09, dw, dh);
+          ctx.globalAlpha = 1;
+        } else {
+          ctx.strokeStyle = B.primary + "77";
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.roundRect(W / 2 - 60, H * 0.09, 120, 58, 10);
+          ctx.stroke();
+          ctx.fillStyle = "rgba(255,255,255,0.25)";
+          ctx.font = "10px Fredoka One";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText("YOUR LOGO", W / 2, H * 0.09 + 29);
+          ctx.textBaseline = "alphabetic";
+        }
+
+        // Title
+        ctx.fillStyle = B.primary;
+        ctx.font = "bold 52px Fredoka One";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "alphabetic";
+        ctx.shadowBlur = 0;
+        ctx.fillText("HILL DRIVER", W / 2, H * 0.34);
+
+        // Tagline
+        ctx.fillStyle = "rgba(255,255,255,0.6)";
+        ctx.font = "17px Fredoka One";
+        ctx.fillText(B.tagline || "Drive as far as you can!", W / 2, H * 0.395);
+
+        // Divider line
+        ctx.strokeStyle = B.primary + "44";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(40, H * 0.42);
+        ctx.lineTo(W - 40, H * 0.42);
+        ctx.stroke();
+
+        // Tips — full width rows
+        ctx.textBaseline = "middle";
+        const tips = [
+          { icon: "⛽", text: "Collect fuel cans to keep going" },
+          { icon: "💰", text: "Grab coins for bonus points" },
+          { icon: "⚠️", text: "Don't flip your car!" },
+        ];
+        tips.forEach((t, i) => {
+          const rowY = H * 0.465 + i * H * 0.058;
+          ctx.fillStyle = "rgba(255,255,255,0.05)";
+          ctx.beginPath();
+          ctx.roundRect(16, rowY - 18, W - 32, 36, 10);
+          ctx.fill();
+          ctx.fillStyle = B.primary;
+          ctx.font = "14px Fredoka One";
+          ctx.textAlign = "left";
+          ctx.fillText(t.icon, 36, rowY);
+          ctx.fillStyle = "rgba(255,255,255,0.85)";
+          ctx.fillText(t.text, 72, rowY);
+        });
+
+        // TAP TO START — wide button
+        const pulse = Math.sin(frame * 0.08) * 0.03 + 1;
+        ctx.save();
+        ctx.translate(W / 2, H * 0.72);
+        ctx.scale(pulse, pulse);
+        const btnGrad = ctx.createLinearGradient(-W * 0.42, 0, W * 0.42, 0);
+        btnGrad.addColorStop(0, B.primary);
+        btnGrad.addColorStop(1, B.secondary || B.primary);
+        ctx.fillStyle = btnGrad;
+        ctx.shadowBlur = 0;
+        ctx.beginPath();
+        ctx.roundRect(-W * 0.42, -28, W * 0.84, 56, 16);
+        ctx.fill();
+        ctx.fillStyle = "#1a0a00";
+        ctx.font = "bold 22px Fredoka One";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("TAP TO START", 0, 0);
+        ctx.restore();
+
+        // Best score
+        if (best > 0) {
+          ctx.fillStyle = "rgba(255,255,255,0.3)";
+          ctx.font = "12px Fredoka One";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "alphabetic";
+          ctx.fillText("BEST: " + best + "m", W / 2, H * 0.82);
+        }
+
+        // Brand name watermark
+        ctx.fillStyle = "rgba(255,255,255,0.2)";
+        ctx.font = "11px Fredoka One";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "alphabetic";
+        ctx.fillText(B.name, W / 2, H * 0.95);
+
+        // Bottom accent bar
+        ctx.fillStyle = B.primary;
+        ctx.fillRect(0, H - 4, W, 4);
+      }
+
+      // ── GAME OVER ──
+      let overAnim = 0;
+      function drawOver() {
+        overAnim++;
+        drawSky();
+        drawClouds();
+        drawTerrain();
+
+        // Dark overlay with gradient
+        // Brand-tinted overlay
+        const ov = ctx.createLinearGradient(0, 0, 0, H);
+        ov.addColorStop(0, "rgba(0,0,0,0.78)");
+        ov.addColorStop(1, "rgba(0,0,0,0.55)");
+        ctx.fillStyle = ov;
+        ctx.fillRect(0, 0, W, H);
+
+        // Logo — top center
+        if (B_logoImg) {
+          const maxW = 130,
+            maxH = 48;
+          const ratio = B_logoImg.width / B_logoImg.height;
+          let dw = maxH * ratio,
+            dh = maxH;
+          if (dw > maxW) {
+            dw = maxW;
+            dh = dw / ratio;
+          }
+          ctx.globalAlpha = 0.95;
+          ctx.drawImage(B_logoImg, W / 2 - dw / 2, H * 0.06, dw, dh);
+          ctx.globalAlpha = 1;
+        }
+
+        // Spinning/crashed car animation
+        const carSx = W / 2;
+        const carSy = H * 0.28;
+        const spinAngle =
+          deathReason === "flipped"
+            ? overAnim * 0.08
+            : Math.sin(overAnim * 0.05) * 0.18;
+        ctx.save();
+        ctx.globalAlpha = Math.min(1, overAnim / 20);
+        drawCarSide(carSx, carSy, spinAngle);
+        ctx.globalAlpha = 1;
+        ctx.restore();
+
+        // Crash stars / X marks
+        if (deathReason === "flipped") {
+          for (let i = 0; i < 5; i++) {
+            const a = (i / 5) * Math.PI * 2 + overAnim * 0.03;
+            const r = 54 + Math.sin(overAnim * 0.1 + i) * 8;
+            const sx = carSx + Math.cos(a) * r;
+            const sy = carSy + Math.sin(a) * r;
+            ctx.save();
+            ctx.translate(sx, sy);
+            ctx.rotate(overAnim * 0.05 + i);
+            ctx.fillStyle = `rgba(255,80,80,${0.5 + Math.sin(overAnim * 0.15 + i) * 0.3})`;
+            ctx.font = "bold 16px Fredoka One";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText("✕", 0, 0);
+            ctx.restore();
+          }
+        }
+
+        // Death reason badge
+        const reasonMap = {
+          flipped: "🔄 You Flipped!",
+          fuel: "⛽ Out of Fuel!",
+          fell: "💨 You Fell Off!",
+        };
+        const reasonText = reasonMap[deathReason] || "GAME OVER";
+        ctx.fillStyle = deathReason === "fuel" ? "#ff8c00" : "#ff4444";
+        ctx.shadowBlur = 0;
+        ctx.font = "bold 28px Fredoka One";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "alphabetic";
+        ctx.fillText(reasonText, W / 2, H * 0.46);
+
+        // Stats card — brand color border
+        ctx.fillStyle = "rgba(255,255,255,0.07)";
+        ctx.strokeStyle = B.primary + "55";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.roundRect(W / 2 - 150, H * 0.485, 300, 110, 18);
+        ctx.fill();
+        ctx.stroke();
+
+        // Distance stat
+        ctx.fillStyle = "rgba(255,255,255,0.5)";
+        ctx.font = "12px Fredoka One";
+        ctx.textAlign = "center";
+        ctx.fillText("DISTANCE", W / 2 - 75, H * 0.525);
+        ctx.fillText("COINS", W / 2 + 75, H * 0.525);
+
+        ctx.fillStyle = B.primary;
+        ctx.font = "bold 32px Fredoka One";
+        ctx.fillText(score + "m", W / 2 - 75, H * 0.565);
+        ctx.fillStyle = "#FFD700";
+        ctx.fillText(coins, W / 2 + 75, H * 0.565);
+
+        // Divider
+        ctx.strokeStyle = "rgba(255,255,255,0.15)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(W / 2, H * 0.485 + 14);
+        ctx.lineTo(W / 2, H * 0.485 + 96);
+        ctx.stroke();
+
+        // Best
+        const isNewBest = score >= best && score > 0;
+        if (isNewBest) {
+          const pulse = Math.sin(overAnim * 0.12) * 0.1 + 1;
+          ctx.save();
+          ctx.translate(W / 2, H * 0.608);
+          ctx.scale(pulse, pulse);
+          ctx.fillStyle = "#FFD700";
+          ctx.font = "bold 14px Fredoka One";
+          ctx.textAlign = "center";
+          ctx.fillText("🏆 NEW BEST!", 0, 0);
+          ctx.restore();
+        } else {
+          ctx.fillStyle = "rgba(255,255,255,0.3)";
+          ctx.font = "12px Fredoka One";
+          ctx.textAlign = "center";
+          ctx.fillText("BEST: " + best + "m", W / 2, H * 0.608);
+        }
+
+        // CTA button (pulsing)
+        const ctaPulse = Math.sin(overAnim * 0.07) * 0.03 + 1;
+        ctx.save();
+        ctx.translate(W / 2, H * 0.685);
+        ctx.scale(ctaPulse, ctaPulse);
+        const ctaGrad = ctx.createLinearGradient(-120, -28, 120, 28);
+        ctaGrad.addColorStop(0, B.primary);
+        ctaGrad.addColorStop(1, B.secondary);
+        ctx.fillStyle = ctaGrad;
+        ctx.shadowBlur = 0;
+        ctx.beginPath();
+        ctx.roundRect(-120, -28, 240, 56, 16);
+        ctx.fill();
+        ctx.fillStyle = "#1a0a00";
+        ctx.font = "bold 20px Fredoka One";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(B.ctaLabel, 0, 0);
+        ctx.restore();
+
+        // Try again button
+        ctx.fillStyle = "rgba(255,255,255,0.1)";
+        ctx.strokeStyle = "rgba(255,255,255,0.35)";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.roundRect(W / 2 - 90, H * 0.762, 180, 44, 14);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = "rgba(255,255,255,0.9)";
+        ctx.font = "bold 17px Fredoka One";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("↺  TRY AGAIN", W / 2, H * 0.762 + 22);
+
+        // Brand watermark
+        if (B_logoImg) {
+          const lw = 80,
+            lh = 30;
+          const ratio = B_logoImg.width / B_logoImg.height;
+          let dw = lh * ratio,
+            dh = lh;
+          if (dw > lw) {
+            dw = lw;
+            dh = dw / ratio;
+          }
+          ctx.globalAlpha = 0.6;
+          ctx.drawImage(B_logoImg, W / 2 - dw / 2, H * 0.87, dw, dh);
+          ctx.globalAlpha = 1;
+        } else {
+          ctx.fillStyle = "rgba(255,255,255,0.3)";
+          ctx.font = "12px Fredoka One";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "alphabetic";
+          ctx.fillText(B.name, W / 2, H * 0.9);
+        }
+      }
+
+      // ── INPUT ──
+      function getCanvasXY(clientX, clientY) {
+        const rect = c.getBoundingClientRect();
+        return {
+          x: (clientX - rect.left) * (W / rect.width),
+          y: (clientY - rect.top) * (H / rect.height),
+        };
+      }
+
+      function handleDown(cx, cy) {
+        if (state === "start") {
+          resetGame();
+          return;
+        }
+        if (state === "over") {
+          // CTA button
+          const ctaY = H * 0.685 - 28,
+            ctaH = 56;
+          if (
+            cy > ctaY &&
+            cy < ctaY + ctaH &&
+            cx > W / 2 - 120 &&
+            cx < W / 2 + 120
+          ) {
+            window.open(B.cta, "_blank");
+            return;
+          }
+          // Try again button
+          const retY = H * 0.762,
+            retH = 44;
+          if (
+            cy > retY &&
+            cy < retY + retH &&
+            cx > W / 2 - 90 &&
+            cx < W / 2 + 90
+          ) {
+            overAnim = 0;
+            resetGame();
+            return;
+          }
+          return;
+        }
+        // Gameplay buttons
+        if (cx < W / 2) brakeDown = true;
+        else gasDown = true;
+      }
+
+      function handleUp(cx, cy) {
+        if (cx < W / 2) brakeDown = false;
+        else gasDown = false;
+      }
+
+      function handleUpAll() {
+        gasDown = false;
+        brakeDown = false;
+      }
+
+      c.addEventListener("mousedown", (e) => {
+        const p = getCanvasXY(e.clientX, e.clientY);
+        handleDown(p.x, p.y);
+      });
+      c.addEventListener("mouseup", (e) => {
+        const p = getCanvasXY(e.clientX, e.clientY);
+        handleUp(p.x, p.y);
+      });
+      c.addEventListener(
+        "touchstart",
+        (e) => {
+          e.preventDefault();
+          Array.from(e.touches).forEach((t) => {
+            const p = getCanvasXY(t.clientX, t.clientY);
+            handleDown(p.x, p.y);
+          });
+        },
+        { passive: false },
+      );
+      c.addEventListener(
+        "touchend",
+        (e) => {
+          e.preventDefault();
+          if (e.touches.length === 0) {
+            handleUpAll();
+          } else {
+            gasDown = false;
+            brakeDown = false;
+            Array.from(e.touches).forEach((t) => {
+              const p = getCanvasXY(t.clientX, t.clientY);
+              if (p.x < W / 2) brakeDown = true;
+              else gasDown = true;
+            });
+          }
+        },
+        { passive: false },
+      );
+      c.addEventListener(
+        "touchmove",
+        (e) => {
+          e.preventDefault();
+        },
+        { passive: false },
+      );
+
+      // Keyboard
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "ArrowRight" || e.key === "d") gasDown = true;
+        if (e.key === "ArrowLeft" || e.key === "a") brakeDown = true;
+        if (state !== "play" && (e.key === " " || e.key === "Enter")) {
+          if (state === "start") resetGame();
+          else if (state === "over") resetGame();
+        }
+      });
+      document.addEventListener("keyup", (e) => {
+        if (e.key === "ArrowRight" || e.key === "d") gasDown = false;
+        if (e.key === "ArrowLeft" || e.key === "a") brakeDown = false;
+      });
+
+      // ── MAIN LOOP ──
+      genTerrain();
+      // Set initial car y
+      CAR.y = getTerrainY(CAR.worldX) - CAR.wheelR;
+
+      // Init clouds
+      for (let i = 0; i < 8; i++) {
+        clouds.push({
+          x: Math.random() * W * 3,
+          y: 60 + Math.random() * 140,
+          r: 30 + Math.random() * 50,
+          speed: 0.2 + Math.random() * 0.3,
+        });
+      }
+
+      function loop() {
+        requestAnimationFrame(loop);
+        frame++;
+
+        if (state === "start") {
+          drawStart();
+          return;
+        }
+
+        if (state === "over") {
+          drawOver();
+          return;
+        }
+
+        // Physics
+        physicsStep();
+
+        // Draw
+        drawSky();
+        drawClouds();
+
+        // Trees (decorative, parallax)
+        ctx.fillStyle = "#2e7d32";
+        for (let t = 0; t < 12; t++) {
+          const twx = t * 317 + 80;
+          const tsx = twx - camX * 0.85;
+          if (tsx < -30 || tsx > W + 30) continue;
+          const tty = getTerrainY(twx);
+          // Trunk
+          ctx.fillStyle = "#5d4037";
+          ctx.fillRect(tsx - 4, tty - 44, 8, 26);
+          // Canopy layers
+          ctx.fillStyle = "#388e3c";
+          ctx.beginPath();
+          ctx.arc(tsx, tty - 54, 20, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = "#43a047";
+          ctx.beginPath();
+          ctx.arc(tsx + 8, tty - 62, 14, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = "#66bb6a";
+          ctx.beginPath();
+          ctx.arc(tsx - 6, tty - 60, 12, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        drawTerrain();
+        drawCoins();
+        drawFuelCans();
+
+        // Particles
+        for (let i = particles.length - 1; i >= 0; i--) {
+          const p = particles[i];
+          p.x += p.vx;
+          p.y += p.vy;
+          p.vy += 0.15;
+          p.life -= 0.03;
+          if (p.life <= 0) {
+            particles.splice(i, 1);
+            continue;
+          }
+          ctx.globalAlpha = p.life;
+          ctx.fillStyle = p.color;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, 4 * p.life, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+
+        // Car
+        const screenX = CAR.worldX - camX;
+        if (!CAR.dead) {
+          if (!B_carImg) drawDriver(screenX, CAR.y, CAR.angle);
+          drawCarSide(screenX, CAR.y, CAR.angle);
+
+          // Wheel spin particles (rear)
+          if (gasDown && CAR.onGround) {
+            const wx = screenX - CAR.wheel2X;
+            const wy = CAR.y + CAR.wheelR;
+            particles.push({
+              x: wx,
+              y: wy,
+              vx: -1 - Math.random() * 3,
+              vy: -1 - Math.random() * 2,
+              life: 0.6,
+              color: "#c8a96a",
+            });
+          }
+        }
+
+        drawHUD();
+      }
+
+      loop();
+
+      // ── CANVAS RECORDING ──
+      (function () {
+        let mr = null,
+          chunks = [];
+        window.addEventListener("message", (e) => {
+          if (e.data?.type === "startRecording") {
+            chunks = [];
+            const stream = document.getElementById("c").captureStream(60);
+            const mimeType = MediaRecorder.isTypeSupported(
+              "video/webm;codecs=vp9",
+            )
+              ? "video/webm;codecs=vp9"
+              : "video/webm";
+            mr = new MediaRecorder(stream, {
+              mimeType,
+              videoBitsPerSecond: 5_000_000,
+            });
+            mr.ondataavailable = (ev) => {
+              if (ev.data.size > 0) chunks.push(ev.data);
+            };
+            mr.onstop = () => {
+              const blob = new Blob(chunks, { type: mimeType });
+              const reader = new FileReader();
+              reader.onload = () => {
+                const base64 = reader.result.split(",")[1];
+                window.parent.postMessage(
+                  {
+                    type: "recordingBlob",
+                    gameId: e.data?.gameId || "game",
+                    blob64: base64,
+                    mimeType,
+                  },
+                  "*",
+                );
+              };
+              reader.readAsDataURL(blob);
+            };
+            mr.start(200);
+          }
+          if (e.data?.type === "stopRecording") {
+            if (mr && mr.state === "recording") {
+              // Pass gameId to onstop via closure trick
+              const gid = e.data.gameId;
+              mr.onstop = () => {
+                const blob = new Blob(chunks, {
+                  type: mr.mimeType || "video/webm",
+                });
+                const reader = new FileReader();
+                reader.onload = () => {
+                  const base64 = reader.result.split(",")[1];
+                  window.parent.postMessage(
+                    {
+                      type: "recordingBlob",
+                      gameId: gid,
+                      blob64: base64,
+                      mimeType: mr.mimeType || "video/webm",
+                    },
+                    "*",
+                  );
+                };
+                reader.readAsDataURL(blob);
+              };
+              mr.stop();
+            }
+          }
+        });
+      })();
+    </script>
+  </body>
+</html>

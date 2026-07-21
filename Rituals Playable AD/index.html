@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Rituals — Create Your Drink</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div id="ad-root">
+      <!-- ══ SCREEN 1 — CATEGORY ══ -->
+      <div id="screen-category" class="screen active">
+        <div class="hero-header">
+          <img
+            src="images/logo.png"
+            alt="Rituals Coffee House"
+            class="logo"
+            onerror="this.style.display = 'none'"
+          />
+          <div class="hero-eyebrow">You're the barista today</div>
+          <h1 class="hero-title">Create Your<br /><em>Perfect Drink</em></h1>
+          <p class="hero-sub">
+            Pick ingredients, name your creation — then discover which Rituals
+            drink you invented.
+          </p>
+        </div>
+
+        <div class="category-section">
+          <div class="section-label">Choose your base</div>
+          <div class="cat-grid">
+            <button
+              class="cat-card"
+              data-cat="chiller"
+              onclick="selectCat(this)"
+            >
+              <span class="cat-emoji">🧋</span>
+              <span class="cat-title">Chiller</span>
+              <span class="cat-hint">Cold blended</span>
+            </button>
+            <button
+              class="cat-card"
+              data-cat="coffee"
+              onclick="selectCat(this)"
+            >
+              <span class="cat-emoji">☕</span>
+              <span class="cat-title">Coffee</span>
+              <span class="cat-hint">Hot or iced</span>
+            </button>
+            <button class="cat-card" data-cat="tea" onclick="selectCat(this)">
+              <span class="cat-emoji">🍵</span>
+              <span class="cat-title">Tea</span>
+              <span class="cat-hint">Chai &amp; blends</span>
+            </button>
+            <button
+              class="cat-card"
+              data-cat="smoothie"
+              onclick="selectCat(this)"
+            >
+              <span class="cat-emoji">🥤</span>
+              <span class="cat-title">Smoothie</span>
+              <span class="cat-hint">Fruity &amp; fresh</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="screen-footer">
+          <button
+            class="pill-btn primary"
+            id="cat-cta"
+            onclick="goToIngredients()"
+            disabled
+          >
+            Start Building →
+          </button>
+        </div>
+      </div>
+
+      <!-- ══ SCREEN 2 — INGREDIENTS ══ -->
+      <div id="screen-ingredients" class="screen">
+        <div class="build-header">
+          <button class="icon-back" onclick="goToCategory()">‹</button>
+          <div class="build-title-wrap">
+            <div class="build-eyebrow">Step 2 · Build it</div>
+            <div class="build-title">Pick your ingredients</div>
+          </div>
+          <div class="build-badge" id="ing-badge">0</div>
+        </div>
+
+        <div class="cup-stage">
+          <div class="cup-outer" id="cup-outer">
+            <div class="cup-glass">
+              <div class="cup-liquid-wrap">
+                <div class="cup-layers" id="cup-layers"></div>
+              </div>
+              <div class="cup-bubbles" id="cup-bubbles"></div>
+              <div class="cup-foam-layer" id="cup-foam-layer"></div>
+              <div class="cup-shine"></div>
+            </div>
+            <div class="cup-straw" id="cup-straw" style="display: none"></div>
+            <div class="cup-steam" id="cup-steam"></div>
+          </div>
+          <div class="cup-shadow-el"></div>
+        </div>
+
+        <div class="ingredient-panel">
+          <div class="ing-tabs" id="ing-tabs"></div>
+          <div class="ing-grid" id="ing-grid"></div>
+          <div class="ing-hint" id="ing-hint">
+            Select at least 2 ingredients to continue
+          </div>
+        </div>
+
+        <div class="screen-footer">
+          <button
+            class="pill-btn primary"
+            id="ing-cta"
+            onclick="startMixing()"
+            disabled
+          >
+            Name Your Drink →
+          </button>
+        </div>
+      </div>
+
+      <!-- ══ SCREEN 2.5 — MIXING ANIMATION ══ -->
+      <div id="screen-mixing" class="screen">
+        <div class="mixing-wrap">
+          <div class="mixing-title-top">
+            <div class="mixing-eyebrow">Blending your creation…</div>
+            <div class="mixing-title">
+              Hang on,<br /><em>Barista at work!</em>
+            </div>
+          </div>
+
+          <!-- Blender cup -->
+          <div class="blender-stage">
+            <div class="blender-body" id="blender-body">
+              <div class="blender-glass">
+                <div class="blender-liquid" id="blender-liquid"></div>
+                <div class="blender-swirl" id="blender-swirl">
+                  <div class="swirl-ring r1"></div>
+                  <div class="swirl-ring r2"></div>
+                  <div class="swirl-ring r3"></div>
+                </div>
+                <div class="blender-bubbles" id="blender-bubbles"></div>
+                <div class="blender-shine"></div>
+              </div>
+              <div class="blender-base"></div>
+            </div>
+            <div class="blender-splash" id="blender-splash"></div>
+          </div>
+
+          <!-- Ingredient emoji parade -->
+          <div class="mixing-ingredients" id="mixing-ingredients"></div>
+
+          <!-- Progress dots -->
+          <div class="mixing-dots">
+            <div class="mix-dot" id="mix-dot-1"></div>
+            <div class="mix-dot" id="mix-dot-2"></div>
+            <div class="mix-dot" id="mix-dot-3"></div>
+          </div>
+
+          <div class="mixing-status" id="mixing-status">
+            Combining flavours…
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ SCREEN 3 — NAME IT ══ -->
+      <div id="screen-name" class="screen">
+        <div class="build-header">
+          <button class="icon-back" onclick="backToIngredients()">‹</button>
+          <div class="build-title-wrap">
+            <div class="build-eyebrow">Step 3 · Name it</div>
+            <div class="build-title">What's it called?</div>
+          </div>
+        </div>
+
+        <div class="name-cup-area">
+          <div class="cup-outer mini" id="name-cup-outer">
+            <div class="cup-glass">
+              <div class="cup-liquid-wrap">
+                <div class="cup-layers" id="name-cup-layers"></div>
+              </div>
+              <div class="cup-foam-layer" id="name-cup-foam"></div>
+              <div class="cup-shine"></div>
+            </div>
+            <div
+              class="cup-straw"
+              id="name-cup-straw"
+              style="display: none"
+            ></div>
+            <div class="cup-steam" id="name-cup-steam"></div>
+          </div>
+          <div class="name-ings-summary" id="name-ings-summary"></div>
+        </div>
+
+        <div class="name-panel">
+          <label class="name-label" for="drink-name-input"
+            >Give your drink a name</label
+          >
+          <div class="name-input-wrap">
+            <input
+              type="text"
+              id="drink-name-input"
+              class="name-input"
+              placeholder="e.g. Caribbean Sunset…"
+              maxlength="32"
+              oninput="onNameInput(this)"
+              autocomplete="off"
+            />
+            <span class="name-char" id="name-char">0/32</span>
+          </div>
+
+          <div class="suggestions-block">
+            <div class="sug-label">Need inspiration?</div>
+            <div class="sug-chips" id="sug-chips"></div>
+          </div>
+        </div>
+
+        <div class="screen-footer">
+          <button
+            class="pill-btn primary"
+            id="name-cta"
+            onclick="goToReveal()"
+            disabled
+          >
+            Reveal My Match →
+          </button>
+        </div>
+      </div>
+
+      <!-- ══ SCREEN 4 — REVEAL ══ -->
+      <div id="screen-reveal" class="screen">
+        <div class="reveal-top">
+          <img
+            src="images/logo.png"
+            alt="Rituals"
+            class="logo small"
+            onerror="this.style.display = 'none'"
+          />
+        </div>
+
+        <div class="reveal-drink-stage">
+          <div class="reveal-img-wrap">
+            <img
+              id="reveal-img"
+              src=""
+              alt=""
+              class="reveal-img"
+              onerror="console.warn('Image failed: ' + this.src)"
+            />
+            <div id="reveal-confetti" class="reveal-confetti"></div>
+          </div>
+        </div>
+
+        <div class="reveal-panel">
+          <div class="reveal-your-block">
+            <div class="reveal-your-label">You invented</div>
+            <div class="reveal-your-name" id="reveal-your-name"></div>
+            <div class="reveal-your-ings" id="reveal-your-ings"></div>
+          </div>
+
+          <div class="reveal-divider">
+            <div class="reveal-divider-line"></div>
+            <div class="reveal-divider-text">Sounds like you'd love…</div>
+            <div class="reveal-divider-line"></div>
+          </div>
+
+          <div class="reveal-match-block">
+            <div class="reveal-match-name" id="reveal-match-name"></div>
+            <div class="reveal-match-desc" id="reveal-match-desc"></div>
+          </div>
+
+          <a
+            class="pill-btn primary cta-link cta-pulse"
+            id="reveal-cta"
+            href="https://ritualscoffeehouse.com/menu/"
+            target="_blank"
+          >
+            ☕ Try It at Rituals →
+          </a>
+          <button class="ghost-btn" onclick="reset()">
+            ↺ Make Another Drink
+          </button>
+        </div>
+      </div>
+    </div>
+    <!-- /#ad-root -->
+
+    <script src="ingredients.js"></script>
+    <script src="matcher.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>

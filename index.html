@@ -1,0 +1,1000 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sade</title>
+
+    <link rel="icon" href="./Icon.png" type="image/png" />
+    <link rel="stylesheet" href="style.css" />
+
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-3HXJ8JNS6B"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() { dataLayer.push(arguments); }
+      gtag("js", new Date());
+      gtag("config", "G-3HXJ8JNS6B");
+    </script>
+
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600&family=Inter:wght@300;400;500&display=swap" rel="stylesheet" />
+  </head>
+
+  <body>
+    <!-- LOADING SCREEN -->
+    <div id="loader">
+      <canvas id="loaderCanvas"></canvas>
+      <div class="loader-content">
+        <img src="Logo.gif" class="loader-logo" alt="Sade" />
+        <div class="loader-bar-wrap">
+          <div class="loader-bar"></div>
+        </div>
+        <p class="loader-label">Hello, thanks for popping in...</p>
+      </div>
+    </div>
+
+    <!-- BACKGROUND OVERLAY -->
+    <div class="video-overlay"></div>
+
+    <!-- NAV -->
+    <nav class="nav">
+      <div class="nav-inner">
+        <img src="Logo.gif" class="nav-logo" />
+      </div>
+    </nav>
+
+    <!-- MARQUEE -->
+    <div class="marquee">
+      <div class="marquee-track">
+        <span>WE TURN BRANDS INTO PLAYABLE EXPERIENCES </span>
+        <span>WE TURN BRANDS INTO PLAYABLE EXPERIENCES </span>
+        <span>WE TURN BRANDS INTO PLAYABLE EXPERIENCES </span>
+      </div>
+    </div>
+
+    <!-- HERO -->
+    <section class="hero">
+      <canvas id="heroCanvas"></canvas>
+      <h1 class="hero-title">Gamify Your Brand</h1>
+      <p class="hero-sub">Mini Games • AR Experiences • Playable Ads</p>
+      <div class="hero-buttons">
+        <button
+          id="contactBtn"
+          class="primary-btn"
+          onclick="window.open('https://mail.google.com/mail/?view=cm&to=sadeplayables@gmail.com&su=Enquiry%20—%20Sade%20Swim','_blank')"
+        >
+          Contact Us
+        </button>
+      </div>
+    </section>
+
+    <!-- AR EXPERIENCE SHOWCASE -->
+    <section class="showcase">
+      <h2 class="showcase-title" style="margin-bottom:6px">AR Experience</h2>
+      <div class="price-badge">From $7,500TTD</div>
+      <p class="showcase-sub">
+        Immersive augmented reality experiences built for your brand.
+      </p>
+
+      <div class="showcase-grid">
+        <!-- CARD 1: Image Tracker -->
+        <div class="ad-card">
+          <div class="phone-border-wrap">
+            <canvas class="border-canvas"></canvas>
+            <div class="phone-frame">
+              <div class="phone-notch"></div>
+              <div class="phone-screen">
+                <video class="ad-video" muted loop playsinline autoplay>
+                  <source src="SampleVideo.mp4" type="video/mp4" />
+                </video>
+              </div>
+              <div class="phone-home"></div>
+            </div>
+          </div>
+          <h3 class="ad-title">Image Tracker AR</h3>
+        </div>
+
+        <!-- CARD 2: 3D Model Viewer -->
+        <div class="ad-card">
+          <div class="phone-border-wrap">
+            <canvas class="border-canvas"></canvas>
+            <div class="phone-frame">
+              <div class="phone-notch"></div>
+              <div class="phone-screen">
+                <video class="ad-video" muted loop playsinline autoplay>
+                  <source src="SampleVideo2.mp4" type="video/mp4" />
+                </video>
+              </div>
+              <div class="phone-home"></div>
+            </div>
+          </div>
+          <h3 class="ad-title">3D Model Viewer</h3>
+        </div>
+
+        <!-- CARD 3: Face Tracker -->
+        <div class="ad-card">
+          <div class="phone-border-wrap">
+            <canvas class="border-canvas"></canvas>
+            <div class="phone-frame">
+              <div class="phone-notch"></div>
+              <div class="phone-screen">
+                <video class="ad-video" muted loop playsinline autoplay>
+                  <source src="SampleVideo3.mp4" type="video/mp4" />
+                </video>
+              </div>
+              <div class="phone-home"></div>
+            </div>
+          </div>
+          <h3 class="ad-title">Face Tracker AR</h3>
+        </div>
+      </div>
+    </section>
+
+    <!-- PLAYABLE ADS SECTION -->
+    <section class="showcase">
+      <h2 class="showcase-title" style="margin-bottom:6px">Web Games</h2>
+      <div class="price-badge">$1,500TTD – $6,500TTD</div>
+      <p class="showcase-sub">
+        Interactive mini-games built for brands.
+      </p>
+
+      <div class="showcase-grid">
+        <!-- DRIVER -->
+        <div class="ad-card" id="card-driver">
+          <div class="phone-border-wrap">
+            <canvas class="border-canvas"></canvas>
+            <div class="phone-frame">
+              <div class="phone-notch"></div>
+              <div class="phone-screen">
+                <iframe id="iframe-driver" src="Driver/driver.html" frameborder="0" allow="autoplay; fullscreen" scrolling="no" allowfullscreen></iframe>
+              </div>
+              <div class="phone-home"></div>
+            </div>
+          </div>
+          <h3 class="ad-title">Driver</h3>
+        </div>
+
+        <!-- RUNNER -->
+        <div class="ad-card" id="card-story">
+          <div class="phone-border-wrap">
+            <canvas class="border-canvas"></canvas>
+            <div class="phone-frame">
+              <div class="phone-notch"></div>
+              <div class="phone-screen">
+                <iframe id="iframe-story" src="Runner/runner.html" frameborder="0" allow="autoplay; fullscreen" scrolling="no" allowfullscreen></iframe>
+              </div>
+              <div class="phone-home"></div>
+            </div>
+          </div>
+          <h3 class="ad-title">Runner</h3>
+        </div>
+
+        <!-- HOPPER -->
+        <div class="ad-card" id="card-hopper">
+          <div class="phone-border-wrap">
+            <canvas class="border-canvas"></canvas>
+            <div class="phone-frame">
+              <div class="phone-notch"></div>
+              <div class="phone-screen">
+                <iframe id="iframe-stack" src="Hopper/Hopper.html" frameborder="0" allow="autoplay; fullscreen" scrolling="no" allowfullscreen></iframe>
+              </div>
+              <div class="phone-home"></div>
+            </div>
+          </div>
+          <h3 class="ad-title">Hopper</h3>
+        </div>
+
+        <!-- CATCHER -->
+        <div class="ad-card" id="card-catcher">
+          <div class="phone-border-wrap">
+            <canvas class="border-canvas"></canvas>
+            <div class="phone-frame">
+              <div class="phone-notch"></div>
+              <div class="phone-screen">
+                <iframe id="iframe-catcher" src="Catcher/catcher.html" frameborder="0" allow="autoplay; fullscreen" scrolling="no" allowfullscreen></iframe>
+              </div>
+              <div class="phone-home"></div>
+            </div>
+          </div>
+          <h3 class="ad-title">Catcher</h3>
+        </div>
+      </div>
+    </section>
+
+    <!-- MY WORK SECTION -->
+    <section class="mywork" id="myWork">
+      <h2 class="showcase-title">My Work</h2>
+      <p class="showcase-sub">A selection of games, AR experiences and interactive projects built for real brands.</p>
+
+      <div class="mywork-tabs">
+        <button class="mywork-tab active" data-filter="all">All</button>
+        <button class="mywork-tab" data-filter="ar">AR Experience</button>
+        <button class="mywork-tab" data-filter="playable">Web Games</button>
+        <button class="mywork-tab" data-filter="3d">3D / Interactive</button>
+      </div>
+
+      <div class="mywork-grid" id="myWorkGrid">
+        <!-- Smalta AR Adventure -->
+        <div class="work-card" data-category="ar" id="wcard-smalta">
+          <div class="phone-border-wrap">
+            <canvas class="border-canvas"></canvas>
+            <div class="phone-frame">
+              <div class="phone-notch"></div>
+              <div class="phone-screen">
+                <video class="work-phone-video ad-video" muted loop playsinline>
+                  <source src="videos/smalta-ar.mp4" type="video/mp4" />
+                </video>
+              </div>
+              <div class="phone-home"></div>
+            </div>
+          </div>
+          <a class="collab-sticker" href="https://iugodigital.com/" target="_blank" rel="noopener" onclick="event.stopPropagation()">
+            <span class="collab-label">In collaboration with</span>
+            <svg class="collab-logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 577.48 336.08">
+              <path fill="#29abe2" d="M408.94,93.76c-2.48-2.13-6.24-3.47-8.57-4.68-3.1-1.61-6.23-3.44-9.35-5.13-3.07-1.66-6.4-3.7-9.88-4.27-1.71-.28-3.48-.14-4.98.78-1.86,1.14-2.7,3.26-4.21,4.76-2.38,2.37-5.13,4.36-8.06,5.99-4.83-3.27-10.02-6.01-15.58-8.22-9.53-3.66-19.98-5.48-31.33-5.48s-21.9,1.83-31.33,5.48c-9.92,3.95-18.67,9.57-26.28,16.89-7.8,7.41-13.62,15.88-17.47,25.4-4.14,9.43-6.21,19.49-6.21,30.16s2.07,20.93,6.21,29.87c.71,1.85,1.5,3.67,2.39,5.46-2.4,1.67-4.63,3.55-6.63,5.64-14.86,15.51-21.41,38.02-14.79,58.85,6.56,20.64,25.66,36.72,47.12,39.67,24.21,3.32,47.48-8.72,70.98-15.39,5.01-1.42,11.72-1.94,14.13,2.68,1.75,3.34-.2,7.7-3.4,9.7-3.2,2-7.21,2.13-10.96,1.73-3.75-.4-7.48-1.27-11.24-1.06-1.24.07-2.57.31-3.43,1.2-1,1.03-1.08,2.62-1.1,4.06-.16,10.66-.32,21.32-.47,31.97-.02,1.17-.01,2.42.63,3.4.91,1.39,2.75,1.75,4.39,1.97,4.98.65,10.05.98,15.08.84,8.89-.23,17.67-1.9,25.62-5.81,18.67-9.17,29.87-22.07,26.85-42.65-3.02-20.58-20.33-38.25-40.84-41.68-11.79-1.97-23.91.38-35.33,3.92-6.7,2.07-13.21,4.71-19.83,7.02-7.28,2.53-14.99,5.79-22.86,4.62-12.57-1.87-18.21-15.92-14.98-27.28,1.18-4.16,4.19-7.98,8.18-9.74,2.29-1.01,4.22-1.3,6.43-.15,2.55,1.33,5.14,2.55,7.82,3.6,9.33,3.75,19.78,5.63,31.33,5.63s21.9-1.88,31.33-5.63c9.04-3.56,17.8-9.28,26.28-17.17,7.5-7.12,13.42-15.59,17.76-25.4,4.14-9.23,6.21-19.19,6.21-29.87s-2.07-20.74-6.21-30.16c-.41-1.04-.85-2.06-1.31-3.07,2.2-1.42,4.3-2.99,6.28-4.72,1.75-1.52,3.41-3.15,4.96-4.88,2.01-2.23,3.91-4.56,5.61-7.03,1.49-2.16,3.3-4.61,3.26-7.36-.03-1.77-.87-3.32-2.19-4.45ZM316.99,198.08c-22.9,0-41.46-18.56-41.46-41.46s18.56-41.45,41.46-41.45,41.45,18.56,41.45,41.45-18.56,41.46-41.45,41.46Z"/>
+              <circle fill="#29abe2" cx="407.87" cy="59.48" r="19.25" transform="translate(77.4 305.83) rotate(-45)"/>
+              <path fill="#231f20" d="M27.11,0c14.95,0,27.11,12.49,27.11,27.87s-12.15,27.87-27.11,27.87S0,43.24,0,27.87,12.15,0,27.11,0ZM3.74,74.36h46.74v111.46c0,25.81-20.92,46.73-46.73,46.73h0V74.36Z"/>
+              <path fill="#231f20" d="M202.25,223.42c-.07.06-.14.13-.21.19-7.64,6.93-16.8,8.62-26.71,8.62h-9.33s-.23-24.67-.23-24.67h-.39c-.14,0-.28.08-.34.21-6.3,11.99-21.52,24.53-44.13,24.53-47.36,0-56.08-31.71-56.08-72.94v-84.99h46.73v75.48c0,17.76.31,40.59,24.3,40.59s28.04-19.35,28.04-39.33v-76.75h46.73v125.68c0,4.35.35,8.23-1.13,12.45-1.46,4.16-4.02,7.94-7.25,10.93Z"/>
+              <path fill="#231f20" d="M493.36,74.72c-46.73,0-84.12,31.16-84.12,79.45s37.39,79.45,84.12,79.45,84.12-31.16,84.12-79.45-37.39-79.45-84.12-79.45ZM493.36,197.52c-23.94,0-43.34-19.41-43.34-43.34s19.41-43.34,43.34-43.34,43.35,19.41,43.35,43.34-19.41,43.34-43.35,43.34Z"/>
+            </svg>
+          </a>
+          <span class="work-tag">AR Experience</span>
+          <h3 class="work-phone-title">Smalta AR Adventure</h3>
+          <p class="work-phone-desc">AR brand experience built for Smalta.</p>
+        </div>
+
+        <!-- Lucozade AR Challenge -->
+        <div class="work-card" data-category="ar" id="wcard-lucozade">
+          <div class="phone-border-wrap">
+            <canvas class="border-canvas"></canvas>
+            <div class="phone-frame">
+              <div class="phone-notch"></div>
+              <div class="phone-screen">
+                <video class="work-phone-video ad-video" muted loop playsinline>
+                  <source src="videos/lucozade-ar.mp4" type="video/mp4" />
+                </video>
+              </div>
+              <div class="phone-home"></div>
+            </div>
+          </div>
+          <a class="collab-sticker" href="https://iugodigital.com/" target="_blank" rel="noopener" onclick="event.stopPropagation()">
+            <span class="collab-label">In collaboration with</span>
+            <svg class="collab-logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 577.48 336.08">
+              <path fill="#29abe2" d="M408.94,93.76c-2.48-2.13-6.24-3.47-8.57-4.68-3.1-1.61-6.23-3.44-9.35-5.13-3.07-1.66-6.4-3.7-9.88-4.27-1.71-.28-3.48-.14-4.98.78-1.86,1.14-2.7,3.26-4.21,4.76-2.38,2.37-5.13,4.36-8.06,5.99-4.83-3.27-10.02-6.01-15.58-8.22-9.53-3.66-19.98-5.48-31.33-5.48s-21.9,1.83-31.33,5.48c-9.92,3.95-18.67,9.57-26.28,16.89-7.8,7.41-13.62,15.88-17.47,25.4-4.14,9.43-6.21,19.49-6.21,30.16s2.07,20.93,6.21,29.87c.71,1.85,1.5,3.67,2.39,5.46-2.4,1.67-4.63,3.55-6.63,5.64-14.86,15.51-21.41,38.02-14.79,58.85,6.56,20.64,25.66,36.72,47.12,39.67,24.21,3.32,47.48-8.72,70.98-15.39,5.01-1.42,11.72-1.94,14.13,2.68,1.75,3.34-.2,7.7-3.4,9.7-3.2,2-7.21,2.13-10.96,1.73-3.75-.4-7.48-1.27-11.24-1.06-1.24.07-2.57.31-3.43,1.2-1,1.03-1.08,2.62-1.1,4.06-.16,10.66-.32,21.32-.47,31.97-.02,1.17-.01,2.42.63,3.4.91,1.39,2.75,1.75,4.39,1.97,4.98.65,10.05.98,15.08.84,8.89-.23,17.67-1.9,25.62-5.81,18.67-9.17,29.87-22.07,26.85-42.65-3.02-20.58-20.33-38.25-40.84-41.68-11.79-1.97-23.91.38-35.33,3.92-6.7,2.07-13.21,4.71-19.83,7.02-7.28,2.53-14.99,5.79-22.86,4.62-12.57-1.87-18.21-15.92-14.98-27.28,1.18-4.16,4.19-7.98,8.18-9.74,2.29-1.01,4.22-1.3,6.43-.15,2.55,1.33,5.14,2.55,7.82,3.6,9.33,3.75,19.78,5.63,31.33,5.63s21.9-1.88,31.33-5.63c9.04-3.56,17.8-9.28,26.28-17.17,7.5-7.12,13.42-15.59,17.76-25.4,4.14-9.23,6.21-19.19,6.21-29.87s-2.07-20.74-6.21-30.16c-.41-1.04-.85-2.06-1.31-3.07,2.2-1.42,4.3-2.99,6.28-4.72,1.75-1.52,3.41-3.15,4.96-4.88,2.01-2.23,3.91-4.56,5.61-7.03,1.49-2.16,3.3-4.61,3.26-7.36-.03-1.77-.87-3.32-2.19-4.45ZM316.99,198.08c-22.9,0-41.46-18.56-41.46-41.46s18.56-41.45,41.46-41.45,41.45,18.56,41.45,41.45-18.56,41.46-41.45,41.46Z"/>
+              <circle fill="#29abe2" cx="407.87" cy="59.48" r="19.25" transform="translate(77.4 305.83) rotate(-45)"/>
+              <path fill="#231f20" d="M27.11,0c14.95,0,27.11,12.49,27.11,27.87s-12.15,27.87-27.11,27.87S0,43.24,0,27.87,12.15,0,27.11,0ZM3.74,74.36h46.74v111.46c0,25.81-20.92,46.73-46.73,46.73h0V74.36Z"/>
+              <path fill="#231f20" d="M202.25,223.42c-.07.06-.14.13-.21.19-7.64,6.93-16.8,8.62-26.71,8.62h-9.33s-.23-24.67-.23-24.67h-.39c-.14,0-.28.08-.34.21-6.3,11.99-21.52,24.53-44.13,24.53-47.36,0-56.08-31.71-56.08-72.94v-84.99h46.73v75.48c0,17.76.31,40.59,24.3,40.59s28.04-19.35,28.04-39.33v-76.75h46.73v125.68c0,4.35.35,8.23-1.13,12.45-1.46,4.16-4.02,7.94-7.25,10.93Z"/>
+              <path fill="#231f20" d="M493.36,74.72c-46.73,0-84.12,31.16-84.12,79.45s37.39,79.45,84.12,79.45,84.12-31.16,84.12-79.45-37.39-79.45-84.12-79.45ZM493.36,197.52c-23.94,0-43.34-19.41-43.34-43.34s19.41-43.34,43.34-43.34,43.35,19.41,43.35,43.34-19.41,43.34-43.35,43.34Z"/>
+            </svg>
+          </a>
+          <span class="work-tag">AR Experience</span>
+          <h3 class="work-phone-title">Lucozade AR Challenge</h3>
+          <p class="work-phone-desc">Face-tracked AR challenge for Lucozade.</p>
+        </div>
+
+        <!-- KFC World Cup -->
+        <div class="work-card" data-category="playable" id="wcard-kfc">
+          <div class="phone-border-wrap">
+            <canvas class="border-canvas"></canvas>
+            <div class="phone-frame">
+              <div class="phone-notch"></div>
+              <div class="phone-screen">
+                <video class="work-phone-video ad-video" muted loop playsinline>
+                  <source src="videos/kfc-worldcup.mp4" type="video/mp4" />
+                </video>
+              </div>
+              <div class="phone-home"></div>
+            </div>
+          </div>
+          <a class="collab-sticker" href="https://iugodigital.com/" target="_blank" rel="noopener" onclick="event.stopPropagation()">
+            <span class="collab-label">In collaboration with</span>
+            <svg class="collab-logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 577.48 336.08">
+              <path fill="#29abe2" d="M408.94,93.76c-2.48-2.13-6.24-3.47-8.57-4.68-3.1-1.61-6.23-3.44-9.35-5.13-3.07-1.66-6.4-3.7-9.88-4.27-1.71-.28-3.48-.14-4.98.78-1.86,1.14-2.7,3.26-4.21,4.76-2.38,2.37-5.13,4.36-8.06,5.99-4.83-3.27-10.02-6.01-15.58-8.22-9.53-3.66-19.98-5.48-31.33-5.48s-21.9,1.83-31.33,5.48c-9.92,3.95-18.67,9.57-26.28,16.89-7.8,7.41-13.62,15.88-17.47,25.4-4.14,9.43-6.21,19.49-6.21,30.16s2.07,20.93,6.21,29.87c.71,1.85,1.5,3.67,2.39,5.46-2.4,1.67-4.63,3.55-6.63,5.64-14.86,15.51-21.41,38.02-14.79,58.85,6.56,20.64,25.66,36.72,47.12,39.67,24.21,3.32,47.48-8.72,70.98-15.39,5.01-1.42,11.72-1.94,14.13,2.68,1.75,3.34-.2,7.7-3.4,9.7-3.2,2-7.21,2.13-10.96,1.73-3.75-.4-7.48-1.27-11.24-1.06-1.24.07-2.57.31-3.43,1.2-1,1.03-1.08,2.62-1.1,4.06-.16,10.66-.32,21.32-.47,31.97-.02,1.17-.01,2.42.63,3.4.91,1.39,2.75,1.75,4.39,1.97,4.98.65,10.05.98,15.08.84,8.89-.23,17.67-1.9,25.62-5.81,18.67-9.17,29.87-22.07,26.85-42.65-3.02-20.58-20.33-38.25-40.84-41.68-11.79-1.97-23.91.38-35.33,3.92-6.7,2.07-13.21,4.71-19.83,7.02-7.28,2.53-14.99,5.79-22.86,4.62-12.57-1.87-18.21-15.92-14.98-27.28,1.18-4.16,4.19-7.98,8.18-9.74,2.29-1.01,4.22-1.3,6.43-.15,2.55,1.33,5.14,2.55,7.82,3.6,9.33,3.75,19.78,5.63,31.33,5.63s21.9-1.88,31.33-5.63c9.04-3.56,17.8-9.28,26.28-17.17,7.5-7.12,13.42-15.59,17.76-25.4,4.14-9.23,6.21-19.19,6.21-29.87s-2.07-20.74-6.21-30.16c-.41-1.04-.85-2.06-1.31-3.07,2.2-1.42,4.3-2.99,6.28-4.72,1.75-1.52,3.41-3.15,4.96-4.88,2.01-2.23,3.91-4.56,5.61-7.03,1.49-2.16,3.3-4.61,3.26-7.36-.03-1.77-.87-3.32-2.19-4.45ZM316.99,198.08c-22.9,0-41.46-18.56-41.46-41.46s18.56-41.45,41.46-41.45,41.45,18.56,41.45,41.45-18.56,41.46-41.45,41.46Z"/>
+              <circle fill="#29abe2" cx="407.87" cy="59.48" r="19.25" transform="translate(77.4 305.83) rotate(-45)"/>
+              <path fill="#231f20" d="M27.11,0c14.95,0,27.11,12.49,27.11,27.87s-12.15,27.87-27.11,27.87S0,43.24,0,27.87,12.15,0,27.11,0ZM3.74,74.36h46.74v111.46c0,25.81-20.92,46.73-46.73,46.73h0V74.36Z"/>
+              <path fill="#231f20" d="M202.25,223.42c-.07.06-.14.13-.21.19-7.64,6.93-16.8,8.62-26.71,8.62h-9.33s-.23-24.67-.23-24.67h-.39c-.14,0-.28.08-.34.21-6.3,11.99-21.52,24.53-44.13,24.53-47.36,0-56.08-31.71-56.08-72.94v-84.99h46.73v75.48c0,17.76.31,40.59,24.3,40.59s28.04-19.35,28.04-39.33v-76.75h46.73v125.68c0,4.35.35,8.23-1.13,12.45-1.46,4.16-4.02,7.94-7.25,10.93Z"/>
+              <path fill="#231f20" d="M493.36,74.72c-46.73,0-84.12,31.16-84.12,79.45s37.39,79.45,84.12,79.45,84.12-31.16,84.12-79.45-37.39-79.45-84.12-79.45ZM493.36,197.52c-23.94,0-43.34-19.41-43.34-43.34s19.41-43.34,43.34-43.34,43.35,19.41,43.35,43.34-19.41,43.34-43.35,43.34Z"/>
+            </svg>
+          </a>
+          <span class="work-tag">Playable Ad</span>
+          <h3 class="work-phone-title">KFC World Cup Playable Ad</h3>
+          <p class="work-phone-desc">Interactive World Cup playable ad for KFC.</p>
+        </div>
+
+        <!-- NP Ultra Drive -->
+        <div class="work-card" data-category="3d" id="wcard-np">
+          <div class="phone-border-wrap">
+            <canvas class="border-canvas"></canvas>
+            <div class="phone-frame">
+              <div class="phone-notch"></div>
+              <div class="phone-screen">
+                <video class="work-phone-video ad-video" muted loop playsinline>
+                  <source src="videos/np-ultradrive.mp4" type="video/mp4" />
+                </video>
+              </div>
+              <div class="phone-home"></div>
+            </div>
+          </div>
+          <a class="collab-sticker" href="https://iugodigital.com/" target="_blank" rel="noopener" onclick="event.stopPropagation()">
+            <span class="collab-label">In collaboration with</span>
+            <svg class="collab-logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 577.48 336.08">
+              <path fill="#29abe2" d="M408.94,93.76c-2.48-2.13-6.24-3.47-8.57-4.68-3.1-1.61-6.23-3.44-9.35-5.13-3.07-1.66-6.4-3.7-9.88-4.27-1.71-.28-3.48-.14-4.98.78-1.86,1.14-2.7,3.26-4.21,4.76-2.38,2.37-5.13,4.36-8.06,5.99-4.83-3.27-10.02-6.01-15.58-8.22-9.53-3.66-19.98-5.48-31.33-5.48s-21.9,1.83-31.33,5.48c-9.92,3.95-18.67,9.57-26.28,16.89-7.8,7.41-13.62,15.88-17.47,25.4-4.14,9.43-6.21,19.49-6.21,30.16s2.07,20.93,6.21,29.87c.71,1.85,1.5,3.67,2.39,5.46-2.4,1.67-4.63,3.55-6.63,5.64-14.86,15.51-21.41,38.02-14.79,58.85,6.56,20.64,25.66,36.72,47.12,39.67,24.21,3.32,47.48-8.72,70.98-15.39,5.01-1.42,11.72-1.94,14.13,2.68,1.75,3.34-.2,7.7-3.4,9.7-3.2,2-7.21,2.13-10.96,1.73-3.75-.4-7.48-1.27-11.24-1.06-1.24.07-2.57.31-3.43,1.2-1,1.03-1.08,2.62-1.1,4.06-.16,10.66-.32,21.32-.47,31.97-.02,1.17-.01,2.42.63,3.4.91,1.39,2.75,1.75,4.39,1.97,4.98.65,10.05.98,15.08.84,8.89-.23,17.67-1.9,25.62-5.81,18.67-9.17,29.87-22.07,26.85-42.65-3.02-20.58-20.33-38.25-40.84-41.68-11.79-1.97-23.91.38-35.33,3.92-6.7,2.07-13.21,4.71-19.83,7.02-7.28,2.53-14.99,5.79-22.86,4.62-12.57-1.87-18.21-15.92-14.98-27.28,1.18-4.16,4.19-7.98,8.18-9.74,2.29-1.01,4.22-1.3,6.43-.15,2.55,1.33,5.14,2.55,7.82,3.6,9.33,3.75,19.78,5.63,31.33,5.63s21.9-1.88,31.33-5.63c9.04-3.56,17.8-9.28,26.28-17.17,7.5-7.12,13.42-15.59,17.76-25.4,4.14-9.23,6.21-19.19,6.21-29.87s-2.07-20.74-6.21-30.16c-.41-1.04-.85-2.06-1.31-3.07,2.2-1.42,4.3-2.99,6.28-4.72,1.75-1.52,3.41-3.15,4.96-4.88,2.01-2.23,3.91-4.56,5.61-7.03,1.49-2.16,3.3-4.61,3.26-7.36-.03-1.77-.87-3.32-2.19-4.45ZM316.99,198.08c-22.9,0-41.46-18.56-41.46-41.46s18.56-41.45,41.46-41.45,41.45,18.56,41.45,41.45-18.56,41.46-41.45,41.46Z"/>
+              <circle fill="#29abe2" cx="407.87" cy="59.48" r="19.25" transform="translate(77.4 305.83) rotate(-45)"/>
+              <path fill="#231f20" d="M27.11,0c14.95,0,27.11,12.49,27.11,27.87s-12.15,27.87-27.11,27.87S0,43.24,0,27.87,12.15,0,27.11,0ZM3.74,74.36h46.74v111.46c0,25.81-20.92,46.73-46.73,46.73h0V74.36Z"/>
+              <path fill="#231f20" d="M202.25,223.42c-.07.06-.14.13-.21.19-7.64,6.93-16.8,8.62-26.71,8.62h-9.33s-.23-24.67-.23-24.67h-.39c-.14,0-.28.08-.34.21-6.3,11.99-21.52,24.53-44.13,24.53-47.36,0-56.08-31.71-56.08-72.94v-84.99h46.73v75.48c0,17.76.31,40.59,24.3,40.59s28.04-19.35,28.04-39.33v-76.75h46.73v125.68c0,4.35.35,8.23-1.13,12.45-1.46,4.16-4.02,7.94-7.25,10.93Z"/>
+              <path fill="#231f20" d="M493.36,74.72c-46.73,0-84.12,31.16-84.12,79.45s37.39,79.45,84.12,79.45,84.12-31.16,84.12-79.45-37.39-79.45-84.12-79.45ZM493.36,197.52c-23.94,0-43.34-19.41-43.34-43.34s19.41-43.34,43.34-43.34,43.35,19.41,43.35,43.34-19.41,43.34-43.35,43.34Z"/>
+            </svg>
+          </a>
+          <span class="work-tag">3D / Interactive</span>
+          <h3 class="work-phone-title">NP Ultra Drive</h3>
+          <p class="work-phone-desc">Custom 3D skybox driving experience for NP.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- WEBSITES SECTION -->
+    <section class="showcase" id="websites">
+      <h2 class="showcase-title" style="margin-bottom:6px">Websites / Landing Pages</h2>
+      <div class="price-badge">$3,500TTD – $5,000TTD</div>
+      <p class="showcase-sub">
+        Custom-built websites crafted to match your brand's identity.
+      </p>
+
+      <div class="web-grid">
+
+        <!-- DJ Kyle Pryme -->
+        <div class="web-card">
+          <div class="laptop-wrap">
+            <div class="laptop-screen">
+              <iframe
+                src="https://djkylepryme.com/"
+                scrolling="no"
+                loading="lazy"
+                title="DJ Kyle Pryme website preview"
+              ></iframe>
+            </div>
+            <div class="laptop-bezel-bottom"></div>
+            <div class="laptop-base"></div>
+            <div class="laptop-foot"></div>
+          </div>
+          <div class="web-card-info">
+            <h3 class="web-card-title">DJ Kyle Pryme</h3>
+            <p class="web-card-desc">South Trinidad's Finest — DJ, Radio Host & Producer.</p>
+            <a class="visit-btn" href="https://djkylepryme.com/" target="_blank" rel="noopener">Visit Site →</a>
+          </div>
+        </div>
+
+        <!-- Sade Swim -->
+        <div class="web-card">
+          <div class="laptop-wrap">
+            <div class="laptop-screen">
+              <iframe
+                src="https://sadeswim.com/"
+                scrolling="no"
+                loading="lazy"
+                title="Sade Swim website preview"
+              ></iframe>
+            </div>
+            <div class="laptop-bezel-bottom"></div>
+            <div class="laptop-base"></div>
+            <div class="laptop-foot"></div>
+          </div>
+          <div class="web-card-info">
+            <h3 class="web-card-title">Sade Swim</h3>
+            <p class="web-card-desc">Swimwear brand built for the bold.</p>
+            <a class="visit-btn" href="https://sadeswim.com/" target="_blank" rel="noopener">Visit Site →</a>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer class="site-footer">
+      <img src="Logo.gif" class="footer-logo" alt="Sade" />
+      <p class="footer-tagline">WE TURN BRANDS INTO PLAYABLE EXPERIENCES</p>
+      <div class="footer-socials">
+        <a href="https://www.instagram.com/sadeplayable/" target="_blank" rel="noopener" aria-label="Instagram">
+          <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="none" viewBox="0 0 24 24">
+            <rect x="2" y="2" width="20" height="20" rx="5" ry="5" stroke="currentColor" stroke-width="1.8"/>
+            <circle cx="12" cy="12" r="4.5" stroke="currentColor" stroke-width="1.8"/>
+            <circle cx="17.5" cy="6.5" r="1.2" fill="currentColor"/>
+          </svg>
+          <span>Instagram</span>
+        </a>
+        <a href="https://www.facebook.com/Sadeplayable" target="_blank" rel="noopener" aria-label="Facebook">
+          <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="none" viewBox="0 0 24 24">
+            <path d="M18 2h-3a5 5 0 00-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 011-1h3z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <span>Facebook</span>
+        </a>
+        <a href="https://www.tiktok.com/@sadeplayable" target="_blank" rel="noopener" aria-label="TikTok">
+          <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="none" viewBox="0 0 24 24">
+            <path d="M9 12a4 4 0 104 4V4a5 5 0 005 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <span>TikTok</span>
+        </a>
+      </div>
+      <p class="footer-copy">© 2026 Sade · All Rights Reserved</p>
+    </footer>
+
+    <!-- SUCCESS MODAL (kept for contact button feedback if needed) -->
+    <div id="successModal" class="modal">
+      <div class="modal-content">
+        <h2>Success</h2>
+        <p id="successMessage"></p>
+        <button id="successClose">Close</button>
+      </div>
+    </div>
+
+    <style>
+      /* ── CARD BUTTON ROW ── */
+      .card-btns {
+        display: flex;
+        gap: 8px;
+        justify-content: center;
+        margin-top: 10px;
+      }
+
+      /* ── Phone border wrap ── */
+      .phone-border-wrap {
+        position: relative;
+        display: inline-block;
+      }
+      .border-canvas {
+        position: absolute;
+        top: -20px;
+        left: -20px;
+        width: calc(100% + 40px);
+        height: calc(100% + 40px);
+        pointer-events: none;
+        z-index: 3;
+      }
+
+      /* ── Phone frame ── */
+      .phone-frame {
+        position: relative;
+        width: 240px;
+        height: 520px;
+        background: #111;
+        border-radius: 36px;
+        border: 6px solid #2a2a2a;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        overflow: hidden;
+        flex-shrink: 0;
+      }
+
+      .phone-frame::before {
+        content: "";
+        position: absolute;
+        left: -10px;
+        top: 100px;
+        width: 4px;
+        height: 28px;
+        background: #333;
+        z-index: 5;
+      }
+      .phone-frame::after {
+        content: "";
+        position: absolute;
+        right: -10px;
+        top: 120px;
+        width: 4px;
+        height: 48px;
+        background: #333;
+        border-radius: 0 2px 2px 0;
+        z-index: 5;
+      }
+
+      .phone-notch {
+        width: 80px;
+        height: 20px;
+        background: #111;
+        border-radius: 0 0 14px 14px;
+        position: absolute;
+        top: 0;
+        z-index: 10;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .phone-notch::after {
+        content: "";
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: #1a1a1a;
+        border: 1.5px solid #333;
+        box-shadow: inset 0 0 3px rgba(0, 180, 255, 0.3);
+      }
+
+      .phone-screen {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        overflow: hidden;
+        border-radius: 30px;
+        background: #000;
+      }
+      .phone-screen iframe {
+        width: 100%;
+        height: 100%;
+        border: none;
+        display: block;
+      }
+      .phone-screen .ad-video {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+        border-radius: 0;
+      }
+
+      .phone-home {
+        position: absolute;
+        bottom: 7px;
+        width: 80px;
+        height: 4px;
+        background: #444;
+        border-radius: 2px;
+        z-index: 10;
+      }
+
+      .ad-card {
+        overflow: visible !important;
+        background: transparent !important;
+        padding: 8px !important;
+      }
+
+      /* ── PRICE BADGE ── */
+      .price-badge {
+        display: table;
+        margin: 0 auto 24px;
+        padding: 4px 16px;
+        border-radius: 100px;
+        border: 1px solid rgba(255,255,255,0.1);
+        background: rgba(255,255,255,0.06);
+        color: rgba(0, 0, 0, 0.38);
+        font-family: "Inter", sans-serif;
+        font-size: 12px;
+        letter-spacing: 0.5px;
+      }
+
+      /* ── WEBSITES SECTION ── */
+      .web-grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 60px;
+        justify-content: center;
+        padding: 0 20px;
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+
+      .web-card {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        width: 480px;
+      }
+
+      /* ── LAPTOP FRAME ── */
+      .laptop-wrap {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+
+      .laptop-screen {
+        width: 100%;
+        height: 290px;
+        background: #0d0d0d;
+        border-radius: 10px 10px 0 0;
+        border: 8px solid #2a2a2a;
+        border-bottom: 12px solid #1a1a1a;
+        overflow: hidden;
+        position: relative;
+        box-shadow: 0 0 0 1px #111, inset 0 0 8px rgba(0,0,0,0.6);
+      }
+      .laptop-screen::before {
+        content: "";
+        position: absolute;
+        top: 6px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: #222;
+        border: 1.5px solid #333;
+        z-index: 10;
+      }
+      .laptop-screen iframe {
+        width: 200%;
+        height: 200%;
+        border: none;
+        transform: scale(0.5);
+        transform-origin: top left;
+        pointer-events: none;
+      }
+
+      .laptop-bezel-bottom {
+        width: 100%;
+        height: 14px;
+        background: #1e1e1e;
+        border-radius: 0 0 4px 4px;
+        border-top: 1px solid #333;
+      }
+
+      .laptop-base {
+        width: 110%;
+        height: 10px;
+        background: linear-gradient(to bottom, #2a2a2a, #1a1a1a);
+        border-radius: 0 0 6px 6px;
+        margin-top: 0;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+      }
+
+      .laptop-foot {
+        width: 60%;
+        height: 4px;
+        background: #141414;
+        border-radius: 0 0 4px 4px;
+        margin-top: 0;
+      }
+
+      .web-card-info {
+        padding: 20px 4px 0;
+        text-align: center;
+        width: 100%;
+      }
+      .web-card-title {
+        font-family: "Orbitron", sans-serif;
+        font-size: 15px;
+        color: #fff;
+        margin: 0 0 6px;
+        letter-spacing: 1px;
+      }
+      .web-card-desc {
+        font-family: "Inter", sans-serif;
+        font-size: 13px;
+        color: rgba(255,255,255,0.5);
+        margin: 0 0 16px;
+        line-height: 1.5;
+      }
+      .visit-btn {
+        display: inline-block;
+        padding: 9px 22px;
+        border-radius: 8px;
+        border: 1.5px solid #000000;
+        background: transparent;
+        color: #000000;
+        font-family: "Orbitron", sans-serif;
+        font-size: 11px;
+        letter-spacing: 2px;
+        text-decoration: none;
+        transition: background 0.2s, box-shadow 0.2s;
+      }
+      .visit-btn:hover {
+        background: rgba(0,255,247,0.08);
+        box-shadow: 0 0 16px rgba(0,255,247,0.25);
+      }
+
+      /* ── FOOTER ── */
+      .site-footer {
+        text-align: center;
+        padding: 60px 20px 40px;
+        border-top: 1px solid rgba(255,255,255,0.07);
+        margin-top: 80px;
+      }
+      .footer-logo {
+        width: 64px;
+        height: auto;
+        margin-bottom: 14px;
+        opacity: 0.85;
+      }
+      .footer-tagline {
+        font-family: "Orbitron", sans-serif;
+        font-size: 10px;
+        letter-spacing: 3px;
+        color: rgba(255,255,255,0.3);
+        margin: 0 0 28px;
+      }
+      .footer-socials {
+        display: flex;
+        gap: 36px;
+        justify-content: center;
+        margin-bottom: 28px;
+      }
+      .footer-socials a {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+        color: rgba(255,255,255,0.75);
+        text-decoration: none;
+        font-family: "Inter", sans-serif;
+        font-size: 12px;
+        letter-spacing: 0.5px;
+        transition: color 0.2s, transform 0.2s;
+      }
+      .footer-socials a svg {
+        stroke: currentColor;
+        display: block;
+      }
+      .footer-socials a:hover {
+        color: #00fff7;
+        transform: translateY(-3px);
+      }
+      .footer-copy {
+        font-family: "Inter", sans-serif;
+        font-size: 12px;
+        color: rgba(255,255,255,0.2);
+        margin: 0;
+      }
+    </style>
+
+    <div class="cursor-glow"></div>
+
+    <button id="scrollTopBtn">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+        <path d="M6 15L12 9L18 15" stroke="currentColor" stroke-width="2" />
+      </svg>
+    </button>
+
+    <!-- CHAT TRIGGER -->
+    <div id="chatTrigger"></div>
+
+    <!-- CHAT BOX -->
+    <div id="chatBox">
+      <div class="chat-header">
+        <span>Esther Herbert</span>
+        <button id="closeChat">✕</button>
+      </div>
+      <div class="chat-body" id="chatBody">
+        <div class="chat-message bot">Hi 👋 How can I help you today?</div>
+        <div class="faq-options">
+          <button class="faq-btn">How do I create an experience?</button>
+          <button class="faq-btn">What are playable ads?</button>
+          <button class="faq-btn">How much would something like this cost?</button>
+          <button class="faq-btn">Is everything customizable?</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- LOADER SCRIPT -->
+    <script>
+      (function () {
+        const canvas = document.getElementById("loaderCanvas");
+        const ctx = canvas.getContext("2d");
+        let W = (canvas.width = window.innerWidth);
+        let H = (canvas.height = window.innerHeight);
+
+        const particles = Array.from({ length: 120 }, () => ({
+          x: Math.random() * W,
+          y: Math.random() * H,
+          r: Math.random() * 1.5 + 0.4,
+          vx: (Math.random() - 0.5) * 0.3,
+          vy: (Math.random() - 0.5) * 0.3,
+          hue: Math.random() * 60 + 170,
+        }));
+
+        function draw() {
+          ctx.clearRect(0, 0, W, H);
+          for (const p of particles) {
+            p.x += p.vx; p.y += p.vy;
+            if (p.x < 0) p.x = W; if (p.x > W) p.x = 0;
+            if (p.y < 0) p.y = H; if (p.y > H) p.y = 0;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+            ctx.fillStyle = `hsl(${p.hue}, 90%, 65%)`;
+            ctx.shadowBlur = 8;
+            ctx.shadowColor = `hsl(${p.hue}, 90%, 65%)`;
+            ctx.fill();
+          }
+          if (!window._loaderDone) requestAnimationFrame(draw);
+        }
+        draw();
+
+        window.addEventListener("resize", () => {
+          W = canvas.width = window.innerWidth;
+          H = canvas.height = window.innerHeight;
+        });
+      })();
+
+      window.addEventListener("DOMContentLoaded", () => {
+        setTimeout(() => {
+          const loader = document.getElementById("loader");
+          loader.classList.add("hide");
+          window._loaderDone = true;
+          setTimeout(() => loader.remove(), 700);
+        }, 2200);
+      });
+    </script>
+
+    <script src="script.js"></script>
+
+    <script>
+      /* ── Phone border canvas animations ── */
+      (function () {
+        const COLORS = ["#00fff7", "#ff4df0", "#9b5cff", "#00fff7"];
+
+        function lerpColor(a, b, t) {
+          const ah = parseInt(a.slice(1), 16), bh = parseInt(b.slice(1), 16);
+          const ar = (ah >> 16) & 0xff, ag = (ah >> 8) & 0xff, ab = ah & 0xff;
+          const br = (bh >> 16) & 0xff, bg = (bh >> 8) & 0xff, bb = bh & 0xff;
+          return `rgb(${Math.round(ar+(br-ar)*t)},${Math.round(ag+(bg-ag)*t)},${Math.round(ab+(bb-ab)*t)})`;
+        }
+
+        function getGradColor(t) {
+          const n = COLORS.length - 1;
+          const i = Math.floor(t * n), f = t * n - i;
+          return lerpColor(COLORS[Math.min(i,n-1)], COLORS[Math.min(i+1,n)], f);
+        }
+
+        function initCanvas(canvas) {
+          const wrap = canvas.parentElement;
+          const ctx = canvas.getContext("2d");
+          let hovered = false, raf, t = 0;
+
+          const ORBS = Array.from({ length: 6 }, (_, i) => ({
+            offset: i / 6,
+            speed: 0.0004 + Math.random() * 0.0003,
+            size: 3 + Math.random() * 3,
+            trail: [],
+          }));
+
+          let sparks = [];
+
+          function spawnSpark(x, y, color) {
+            for (let i = 0; i < 5; i++) {
+              const angle = Math.random() * Math.PI * 2;
+              const speed = 1 + Math.random() * 2.5;
+              sparks.push({ x, y, vx: Math.cos(angle)*speed, vy: Math.sin(angle)*speed, life: 1, color, size: 1.5 + Math.random()*2 });
+            }
+          }
+
+          function resize() {
+            const pr = window.devicePixelRatio || 1;
+            const W = wrap.offsetWidth + 40, H = wrap.offsetHeight + 40;
+            canvas.width = W * pr; canvas.height = H * pr;
+            canvas.style.width = W + "px"; canvas.style.height = H + "px";
+            ctx.scale(pr, pr);
+          }
+
+          function phonePath(pad) {
+            const pw = wrap.offsetWidth, ph = wrap.offsetHeight;
+            const off = 20 + pad, r = 44;
+            const x = off, y = off, w = pw - pad*2, h = ph - pad*2;
+            ctx.beginPath();
+            ctx.moveTo(x+r, y);
+            ctx.arcTo(x+w, y, x+w, y+h, r);
+            ctx.arcTo(x+w, y+h, x, y+h, r);
+            ctx.arcTo(x, y+h, x, y, r);
+            ctx.arcTo(x, y, x+w, y, r);
+            ctx.closePath();
+          }
+
+          function perimPoint(progress) {
+            const pw = wrap.offsetWidth, ph = wrap.offsetHeight;
+            const off = 20, r = 44, x0 = off, y0 = off, w = pw, h = ph;
+            const straight_top = w - 2*r, straight_right = h - 2*r;
+            const arc = (Math.PI/2)*r;
+            const total = 2*(straight_top+straight_right) + 4*arc;
+            const dist = progress * total;
+            const segs = [
+              { len: straight_top, fn: (d) => [x0+r+d, y0] },
+              { len: arc, fn: (d) => { const a = -Math.PI/2+d/r; return [x0+w-r+Math.cos(a)*r, y0+r+Math.sin(a)*r]; } },
+              { len: straight_right, fn: (d) => [x0+w, y0+r+d] },
+              { len: arc, fn: (d) => { const a = d/r; return [x0+w-r+Math.cos(a)*r, y0+h-r+Math.sin(a)*r]; } },
+              { len: straight_top, fn: (d) => [x0+w-r-d, y0+h] },
+              { len: arc, fn: (d) => { const a = Math.PI/2+d/r; return [x0+r+Math.cos(a)*r, y0+h-r+Math.sin(a)*r]; } },
+              { len: straight_right, fn: (d) => [x0, y0+h-r-d] },
+              { len: arc, fn: (d) => { const a = Math.PI+d/r; return [x0+r+Math.cos(a)*r, y0+r+Math.sin(a)*r]; } },
+            ];
+            let acc = 0;
+            for (const seg of segs) {
+              if (dist <= acc + seg.len) { const [px,py] = seg.fn(dist-acc); return [px,py]; }
+              acc += seg.len;
+            }
+            return [x0+r, y0];
+          }
+
+          function draw(ts) {
+            t = ts * 0.001;
+            const W = wrap.offsetWidth + 40, H = wrap.offsetHeight + 40;
+            if (wrap.offsetWidth === 0 || wrap.offsetHeight === 0) { raf = requestAnimationFrame(draw); return; }
+            ctx.clearRect(0, 0, W, H);
+            const baseAlpha = hovered ? 1 : 0.7;
+
+            phonePath(0);
+            const grad = ctx.createLinearGradient(20, 20, W-20, H-20);
+            COLORS.forEach((c,i) => grad.addColorStop(i/(COLORS.length-1), c));
+            ctx.strokeStyle = grad; ctx.lineWidth = hovered ? 3 : 2;
+            ctx.globalAlpha = baseAlpha; ctx.shadowColor = "#00fff7";
+            ctx.shadowBlur = hovered ? 18 : 8; ctx.stroke(); ctx.shadowBlur = 0;
+
+            phonePath(4);
+            ctx.strokeStyle = "rgba(155,92,255,0.25)"; ctx.lineWidth = 6;
+            ctx.globalAlpha = hovered ? 0.5 : 0.2; ctx.stroke();
+            ctx.globalAlpha = 1;
+
+            ORBS.forEach((orb) => {
+              orb.offset = (orb.offset + orb.speed) % 1;
+              const colorT = (orb.offset + t*0.1) % 1;
+              const color = getGradColor(colorT);
+              const [px, py] = perimPoint(orb.offset);
+              orb.trail.push({ x: px, y: py, color });
+              if (orb.trail.length > 18) orb.trail.shift();
+              for (let i = 0; i < orb.trail.length; i++) {
+                const tp = orb.trail[i];
+                const a = (i/orb.trail.length)*0.6*baseAlpha;
+                ctx.beginPath(); ctx.arc(tp.x, tp.y, Math.max(0, orb.size*0.5*(i/orb.trail.length)), 0, Math.PI*2);
+                ctx.fillStyle = tp.color; ctx.globalAlpha = a; ctx.fill();
+              }
+              ctx.beginPath(); ctx.arc(px, py, Math.max(0, orb.size), 0, Math.PI*2);
+              ctx.fillStyle = color; ctx.globalAlpha = baseAlpha;
+              ctx.shadowColor = color; ctx.shadowBlur = 10; ctx.fill();
+              ctx.shadowBlur = 0; ctx.globalAlpha = 1;
+              if (hovered && Math.random() < 0.08) spawnSpark(px, py, color);
+            });
+
+            sparks = sparks.filter(s => s.life > 0);
+            sparks.forEach(s => {
+              s.x += s.vx; s.y += s.vy; s.vx *= 0.94; s.vy *= 0.94; s.life -= 0.06;
+              ctx.beginPath(); ctx.arc(s.x, s.y, Math.max(0, s.size*s.life), 0, Math.PI*2);
+              ctx.fillStyle = s.color; ctx.globalAlpha = s.life*0.8; ctx.fill();
+            });
+            ctx.globalAlpha = 1;
+            raf = requestAnimationFrame(draw);
+          }
+
+          wrap.addEventListener("mouseenter", () => { hovered = true; });
+          wrap.addEventListener("mouseleave", () => { hovered = false; sparks = []; });
+          resize();
+          new ResizeObserver(resize).observe(wrap);
+          raf = requestAnimationFrame(draw);
+        }
+
+        function initAll() {
+          document.querySelectorAll(".border-canvas").forEach(initCanvas);
+        }
+        if (document.readyState === "loading") {
+          document.addEventListener("DOMContentLoaded", initAll);
+        } else {
+          initAll();
+        }
+      })();
+    </script>
+
+    <script>
+      /* ── My Work: filter + hover-play ── */
+      (function () {
+        const tabs  = document.querySelectorAll('.mywork-tab');
+        const cards = document.querySelectorAll('.work-card');
+
+        tabs.forEach(tab => {
+          tab.addEventListener('click', () => {
+            tabs.forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            const filter = tab.dataset.filter;
+            cards.forEach(card => {
+              card.classList.toggle('hidden', filter !== 'all' && card.dataset.category !== filter);
+            });
+          });
+        });
+
+        cards.forEach(card => {
+          const vid = card.querySelector('.work-phone-video');
+          if (!vid) return;
+          card.addEventListener('mouseenter', () => vid.play());
+          card.addEventListener('mouseleave', () => { vid.pause(); vid.currentTime = 0; });
+        });
+      })();
+    </script>
+  </body>
+</html>
