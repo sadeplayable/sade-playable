@@ -267,22 +267,22 @@ const GAME_MAP = {
   driver: {
     key: "driverBrand",
     iframeId: "iframe-driver",
-    src: "Driver/driver.html",
+    src: "driver/driver.html",
   },
   story: {
     key: "runnerBrand",
     iframeId: "iframe-story",
-    src: "Runner/runner.html",
+    src: "runner/runner.html",
   },
   hopper: {
     key: "hopperBrand",
     iframeId: "iframe-stack",
-    src: "Hopper/Hopper.html",
+    src: "hopper/hopper.html",
   },
   catcher: {
     key: "catcherBrand",
     iframeId: "iframe-catcher",
-    src: "Catcher/catcher.html",
+    src: "catcher/catcher.html",
   },
 };
 
@@ -708,7 +708,7 @@ const chatBox = document.getElementById("chatBox");
 const oldHeader = chatBox.querySelector(".chat-header");
 
 oldHeader.innerHTML = `
-  <img class="chat-header-avatar" src="Esther Herbert.png" alt="Esther Herbert"
+  <img class="chat-header-avatar" src="esther herbert.png" alt="Esther Herbert"
     onerror="this.outerHTML='<div class=\\'chat-avatar-fallback\\'>EH</div>'" />
   <div class="chat-header-info">
     <div class="chat-header-name">Esther Herbert</div>
@@ -771,7 +771,7 @@ function showBotRow(htmlContent) {
   const row = document.createElement("div");
   row.className = "chat-row-bot";
   row.innerHTML = `
-  <img class="row-avatar-img" src="Esther Herbert.png" alt="EH"
+  <img class="row-avatar-img" src="esther herbert.png" alt="EH"
     onerror="this.outerHTML='<div class=\\'row-avatar\\'>EH</div>'" />
   <div class="chat-bubble bot">${htmlContent}</div>
 `;
